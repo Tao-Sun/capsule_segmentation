@@ -142,8 +142,8 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             batch_margin_loss = tf.reduce_mean(margin_loss)
             balanced_margin_loss = 10 * batch_margin_loss
 
-            # tf.add_to_collection('losses', balanced_margin_loss)
-            # tf.summary.scalar('margin_loss', balanced_margin_loss)
+            tf.add_to_collection('losses', balanced_margin_loss)
+            tf.summary.scalar('margin_loss', balanced_margin_loss)
 
         with tf.name_scope('decode'):
             cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels2d,
