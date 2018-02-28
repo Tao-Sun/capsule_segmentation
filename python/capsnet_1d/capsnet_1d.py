@@ -46,11 +46,11 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='vector_net
             padding='VALID', activation_length=8, name='primary_caps'
         )
 
-
         class_caps_activations, coupling_coeffs = class_caps1d(
             primary_caps_activations,
             num_classes=num_classes, activation_length=64, routing_ites=routing_ites,
             batch_size=batch_size, name='class_capsules')
+        print('class_caps_activations shape: %s' % class_caps_activations.get_shape())
 
         remakes_flatten = _remake(class_caps_activations, height * width) if remake else None
 
