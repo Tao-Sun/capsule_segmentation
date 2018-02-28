@@ -53,7 +53,7 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op):
         ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
         if ckpt and ckpt.model_checkpoint_path:
             # Restores from checkpoint
-            print(ckpt.model_checkpoint_path)
+            print('checkpoint file: %s' % ckpt.model_checkpoint_path)
             saver.restore(sess, ckpt.model_checkpoint_path)
             # Assuming model_checkpoint_path looks something like:
             #   /my-favorite-path/cifar10_train/model.ckpt-0,
@@ -78,7 +78,6 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op):
             total_dices_0 = []
             total_dices_1 = []
             step = 0
-            print(num_iter)
             while step < num_iter and not coord.should_stop():
                 prediction_batch, target_batch = sess.run([inferred_labels_op, labels_op])
 

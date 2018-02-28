@@ -28,13 +28,13 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='vector_net
         # ReLU Conv1
         # Images shape (b, 1, 24, 56) -> conv 5x5 filters, 32 output channels, strides 2 with padding, ReLU
         # nets -> (b, 256, 16, 48)
-        print(inputs.get_shape())
+        print('inputs shape: %s' % inputs.get_shape())
         conv1 = conv2d(
             inputs,
             kernel=9, out_channels=256, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv1'
         )
-        print(conv1.get_shape())
+        print('conv1 shape: %s' % conv1.get_shape())
 
         # PrimaryCaps
         # (b, 256, 16, 48) -> capsule 1x1 filter, 32 output capsule, strides 1 without padding
@@ -87,7 +87,7 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size):
     capsule_probs = tf.norm(activations, axis=-1)  # # (b, 32, 4, 20, 8) -> (b, 32, 4, 20)
     caps_probs_tiled = tf.tile(tf.expand_dims(capsule_probs, -1), [1, 1, 1, 1, num_classes])  # (b, 32, 4, 20, 2)
 
-    print(coupling_coeffs.get_shape())
+    print('coupling_coeffs shape: %s' % coupling_coeffs.get_shape())
     activations_shape = activations.get_shape()
     height, width = activations_shape[2].value, activations_shape[3].value
     coupling_coeff_reshaped = tf.reshape(coupling_coeffs, [batch_size, capsule_num, height, width, num_classes])  # (b, 32, 4, 20, 2)
@@ -114,7 +114,6 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
     with tf.name_scope('loss'):
         with tf.name_scope('remake'):
             image_flatten = tf.contrib.layers.flatten(images)
-            print(image_flatten.get_shape())
             distance = tf.pow(image_flatten - remakes_flatten, 2)
             remake_loss = tf.reduce_sum(distance, axis=-1)
 
