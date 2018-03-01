@@ -1,6 +1,7 @@
 import tensorflow as tf
+
+from python.layers.routing import dynamic_routing
 from .convolution import conv2d
-from ..routing import dynamic_routing
 
 
 def primary_caps1d(inputs, kernel_size, out_capsules, stride, padding, activation_length, name):
@@ -17,8 +18,6 @@ def primary_caps1d(inputs, kernel_size, out_capsules, stride, padding, activatio
     """
 
     with tf.variable_scope(name):
-
-
         conv = conv2d(
             inputs,
             kernel=kernel_size, out_channels=out_capsules * activation_length,

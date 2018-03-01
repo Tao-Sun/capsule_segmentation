@@ -5,6 +5,7 @@ from __future__ import print_function
 import tensorflow as tf
 from python.layers.convolution import conv2d, deconv
 from python.layers.primary_capsules import primary_caps1d
+from python.layers.conv_capsules import conv_capsule1d
 from python.layers.class_capsules import class_caps1d
 
 
@@ -14,7 +15,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='vector_net
     :param inputs:
     :param num_classes:
     :param routing_ites:
-    :param batch_size:
+    :param remake:
     :param name:
     :return:
     """
@@ -22,8 +23,8 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='vector_net
     with tf.variable_scope(name) as scope:
         inputs_shape = inputs.get_shape()
         batch_size = inputs_shape[0].value
-        height = inputs_shape[2].value
-        width = inputs_shape[3].value
+        image_height = inputs_shape[2].value
+        image_width = inputs_shape[3].value
 
         # ReLU Conv1
         # Images shape (b, 1, 24, 56) -> conv 5x5 filters, 32 output channels, strides 2 with padding, ReLU
@@ -31,7 +32,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='vector_net
         print('inputs shape: %s' % inputs.get_shape())
         conv1 = conv2d(
             inputs,
-            kernel=9, out_channels=256, stride=1, padding='VALID',
+            kernel=5, out_channels=256, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv1'
         )
         print('conv1 shape: %s' % conv1.get_shape())
@@ -42,21 +43,27 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='vector_net
         primary_out_capsules = 32
         primary_caps_activations = primary_caps1d(
             conv1,
-            kernel_size=9, out_capsules=primary_out_capsules, stride=2,
+            kernel_size=5, out_capsules=primary_out_capsules, stride=1,
             padding='VALID', activation_length=8, name='primary_caps'
         )
 
-        class_caps_activations, coupling_coeffs = class_caps1d(
-            primary_caps_activations,
+        conv_caps_activations, conv_coupling_coeffs = conv_capsule1d(
+            primary_caps_activations, kernel_size=3,
+            stride=2, routing_ites=routing_ites, in_capsules=32,
+            out_capsules=32, batch_size=batch_size, name='conv_caps'
+        )
+
+        class_caps_activations, class_coupling_coeffs = class_caps1d(
+            conv_caps_activations,
             num_classes=num_classes, activation_length=64, routing_ites=routing_ites,
             batch_size=batch_size, name='class_capsules')
         print('class_caps_activations shape: %s' % class_caps_activations.get_shape())
 
-        remakes_flatten = _remake(class_caps_activations, height * width) if remake else None
+        remakes_flatten = _remake(class_caps_activations, image_height * image_width) if remake else None
 
         label_logits = _decode(
             primary_caps_activations, primary_out_capsules,
-            coupling_coeffs=coupling_coeffs,
+            coupling_coeffs=class_coupling_coeffs,
             num_classes=num_classes, batch_size=batch_size)
 
 
@@ -94,7 +101,16 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size):
 
     primary_labels = tf.reduce_sum(coupling_coeff_reshaped * caps_probs_tiled, 1)  # (b, 4, 20, 2)
     # primary_labels = tf.reduce_sum(caps_probs_tiled, 1)
-    label_logits = deconv(primary_labels, num_classes, name='deconv')  #(b, 24, 56, 2)
+    deconv1 = conv2d(
+        caps_probs_tiled,
+        kernel=10, out_channels=num_classes, stride=2,
+        activation_fn=tf.nn.relu, name='deconv1'
+    )
+    label_logits = conv2d(
+        deconv1,
+        kernel=9, out_channels=num_classes, stride=1,
+        activation_fn=tf.nn.relu, name='deconv2'
+    )
 
     return label_logits
 

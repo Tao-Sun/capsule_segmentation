@@ -1,5 +1,6 @@
 import tensorflow as tf
-from ..routing import dynamic_routing
+
+from python.layers.routing import dynamic_routing
 
 
 def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_size, name):
@@ -36,14 +37,17 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
             print(input_tiled.get_shape())
             votes = tf.reduce_sum(input_tiled * weights, axis=2)
             votes_reshaped = tf.reshape(votes, [-1, in_capsules * in_height * in_width, num_classes, activation_length])  # (b, 32*4*20, 2*64)
+            print('votes_reshaped shape: %s' % votes_reshaped.get_shape())
 
         with tf.name_scope('routing'):
-            coupling_coeffs_shape = tf.stack([batch_size, in_capsules * in_height * in_width, num_classes])
+            coupling_coeffs_shape = tf.stack([batch_size, in_capsules * in_height * in_width, num_classes])  # (b, 32*4*20, 2)
             activations, coupling_coeffs = dynamic_routing(
                 votes=votes_reshaped,
                 coupling_coeffs_shape=coupling_coeffs_shape,
                 num_dims=4,
                 input_dim=in_capsules * in_height * in_width,
                 num_routing=routing_ites)
+            print('activations shape: %s' % votes_reshaped.get_shape())
+            print('coupling_coeffs shape: %s' % coupling_coeffs.get_shape())
 
     return activations, coupling_coeffs
