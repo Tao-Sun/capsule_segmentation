@@ -40,19 +40,21 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='vector_net
         # PrimaryCaps
         # (b, 256, 16, 48) -> capsule 1x1 filter, 32 output capsule, strides 1 without padding
         # nets -> activations (?, 14, 14, 32))
-        primary_out_capsules = 32
+        primary_out_capsules = 16
         primary_caps_activations = primary_caps1d(
             conv1,
             kernel_size=5, out_capsules=primary_out_capsules, stride=1,
             padding='VALID', activation_length=8, name='primary_caps'
-        )
+        )  # (b, 32, 4, 20, 8)
 
-        conv_caps_activations, conv_coupling_coeffs = conv_capsule1d(
+        conv_out_capsules = 16
+        conv_caps_activations, _ = conv_capsule1d(
             primary_caps_activations, kernel_size=3,
-            stride=2, routing_ites=routing_ites, in_capsules=32,
-            out_capsules=32, batch_size=batch_size, name='conv_caps'
-        )
+            stride=2, routing_ites=routing_ites, in_capsules=primary_out_capsules,
+            out_capsules=conv_out_capsules, batch_size=batch_size, name='conv_caps'
+        )  # (b, 32*4*20, 8)
 
+        # (b, 32, 4, 20, 8) -> # (b, 32*4*20, 2*64)
         class_caps_activations, class_coupling_coeffs = class_caps1d(
             conv_caps_activations,
             num_classes=num_classes, activation_length=64, routing_ites=routing_ites,
@@ -62,10 +64,9 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='vector_net
         remakes_flatten = _remake(class_caps_activations, image_height * image_width) if remake else None
 
         label_logits = _decode(
-            primary_caps_activations, primary_out_capsules,
+            conv_caps_activations, conv_out_capsules,
             coupling_coeffs=class_coupling_coeffs,
             num_classes=num_classes, batch_size=batch_size)
-
 
         labels2d = tf.argmax(label_logits, axis=3)
         labels2d_expanded = tf.expand_dims(labels2d, -1)
@@ -99,17 +100,22 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size):
     height, width = activations_shape[2].value, activations_shape[3].value
     coupling_coeff_reshaped = tf.reshape(coupling_coeffs, [batch_size, capsule_num, height, width, num_classes])  # (b, 32, 4, 20, 2)
 
-    primary_labels = tf.reduce_sum(coupling_coeff_reshaped * caps_probs_tiled, 1)  # (b, 4, 20, 2)
+    class_labels = tf.reduce_sum(coupling_coeff_reshaped * caps_probs_tiled, 1)  # (b, 4, 20, 2)
     # primary_labels = tf.reduce_sum(caps_probs_tiled, 1)
-    deconv1 = conv2d(
-        caps_probs_tiled,
-        kernel=10, out_channels=num_classes, stride=2,
+    deconv1 = deconv(
+        class_labels,
+        kernel=4, out_channels=num_classes, stride=2,
         activation_fn=tf.nn.relu, name='deconv1'
     )
-    label_logits = conv2d(
+    deconv2 = deconv(
         deconv1,
-        kernel=9, out_channels=num_classes, stride=1,
+        kernel=5, out_channels=num_classes, stride=1,
         activation_fn=tf.nn.relu, name='deconv2'
+    )
+    label_logits = deconv(
+        deconv2,
+        kernel=5, out_channels=num_classes, stride=1,
+        activation_fn=tf.nn.relu, name='deconv3'
     )
 
     return label_logits
@@ -139,26 +145,26 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             tf.add_to_collection('losses', balanced_remake_loss)
             tf.summary.scalar('remake_loss', balanced_remake_loss)
 
-        with tf.name_scope('margin'):
-            labels_shape = labels2d.get_shape()
-            num_pixels = labels_shape[1].value * labels_shape[2].value
-
-            class_caps_norm = tf.norm(class_caps_activations, axis=-1)  # (b, num_classes)
-
-            class_numbers = []
-            for i in range(num_classes):
-                class_elements = tf.cast(tf.equal(labels2d, i), tf.int32)  # (b, h, w)
-                class_number = tf.reduce_sum(class_elements, [1, 2])  # (b)
-                class_numbers.append(class_number)
-
-            class_probs = tf.divide(tf.stack(class_numbers, axis=1), num_pixels)  # (b, num_classes)
-            margin_loss = tf.pow(tf.cast(class_probs, tf.float32) - class_caps_norm, 2)
-
-            batch_margin_loss = tf.reduce_mean(margin_loss)
-            balanced_margin_loss = 10 * batch_margin_loss
-
-            tf.add_to_collection('losses', balanced_margin_loss)
-            tf.summary.scalar('margin_loss', balanced_margin_loss)
+        # with tf.name_scope('margin'):
+        #     labels_shape = labels2d.get_shape()
+        #     num_pixels = labels_shape[1].value * labels_shape[2].value
+        #
+        #     class_caps_norm = tf.norm(class_caps_activations, axis=-1)  # (b, num_classes)
+        #
+        #     class_numbers = []
+        #     for i in range(num_classes):
+        #         class_elements = tf.cast(tf.equal(labels2d, i), tf.int32)  # (b, h, w)
+        #         class_number = tf.reduce_sum(class_elements, [1, 2])  # (b)
+        #         class_numbers.append(class_number)
+        #
+        #     class_probs = tf.divide(tf.stack(class_numbers, axis=1), num_pixels)  # (b, num_classes)
+        #     margin_loss = tf.pow(tf.cast(class_probs, tf.float32) - class_caps_norm, 2)
+        #
+        #     batch_margin_loss = tf.reduce_mean(margin_loss)
+        #     balanced_margin_loss = 10 * batch_margin_loss
+        #
+        #     tf.add_to_collection('losses', balanced_margin_loss)
+        #     tf.summary.scalar('margin_loss', balanced_margin_loss)
 
         with tf.name_scope('decode'):
             cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels2d,

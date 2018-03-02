@@ -140,50 +140,49 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
         return batched_features
 
 
-def dice(target_batch, prediction_batch):
-    batch_intersection_0 = 0.0
-    batch_union_0 = 0.0
-    batch_intersection_1 = 0.0
-    batch_union_1 = 0.0
-    for i in range(target_batch.shape[0]):
+def dice(target_subject, prediction_subject):
+    subject_intersection_0 = 0.0
+    subject_union_0 = 0.0
+    subject_intersection_1 = 0.0
+    subject_union_1 = 0.0
+    for i in range(target_subject.shape[0]):
         # print("targets[i] shape" + str(targets[i].shape))
         # print("predictions[i] shape" + str(predictions[i].shape))
-        target_0 = target_batch[i].flatten()
-        prediction_0 = prediction_batch[i].flatten()
+        target_0 = target_subject[i].flatten()
+        prediction_0 = prediction_subject[i].flatten()
         # print(target_0[1:100])
         # print(prediction_0[1:100])
         intersection_0 = np.sum(np.multiply(target_0, prediction_0))
-        batch_intersection_0 += intersection_0
+        subject_intersection_0 += intersection_0
         union_0 = np.sum(target_0) + np.sum(prediction_0)
-        batch_union_0 += union_0
+        subject_union_0 += union_0
 
         target_1 = 1 - target_0
         # print(target_1[1:100])
         prediction_1 = 1 - prediction_0
         # print(prediction_1[1:100])
         intersection_1 = np.sum(np.multiply(target_1, prediction_1))
-        batch_intersection_1 += intersection_1
+        subject_intersection_1 += intersection_1
         # print("positive_target_indices shape:" + str(positive_target_indices))
         # print("positive_pred_indices shape:" + str(positive_pred_indices))
 
         union_1 = np.sum(target_1) + np.sum(prediction_1)
-        batch_union_1 += union_1
+        subject_union_1 += union_1
 
     smooth= 1.0
-    batch_dice_0 = (2.0 * batch_intersection_0 + smooth) / (batch_union_0 + smooth)
-    batch_dice_1 = (2.0 * batch_intersection_1 + smooth) / (batch_union_1 + smooth)
+    batch_dice_0 = (2.0 * subject_intersection_0 + smooth) / (subject_union_0 + smooth)
+    batch_dice_1 = (2.0 * subject_intersection_1 + smooth) / (subject_union_1 + smooth)
 
-    print("batch_dices: %f, %f" % (batch_dice_0, batch_dice_1))
     return batch_dice_0, batch_dice_1
 
 
-def save_nii(target_batch, prediction_batch, save_dir, file_no):
-    batch_size = target_batch.shape[0]
-    height = target_batch.shape[1]
-    width = target_batch.shape[2]
+def save_nii(target, prediction, save_dir, file_no):
+    batch_size = target.shape[0]
+    height = target.shape[1]
+    width = target.shape[2]
 
-    target_nii = nib.Nifti1Image(np.reshape(target_batch, (batch_size, height, width)), np.eye(4))
-    prediction_nii = nib.Nifti1Image(np.reshape(prediction_batch, (batch_size, height, width)),
+    target_nii = nib.Nifti1Image(np.reshape(target, (batch_size, height, width)), np.eye(4))
+    prediction_nii = nib.Nifti1Image(np.reshape(prediction, (batch_size, height, width)),
                                      np.eye(4))
     nib.save(target_nii, os.path.join(save_dir, 't_' + str(file_no) + '.nii.gz'))
     nib.save(prediction_nii, os.path.join(save_dir, 'p_' + str(file_no) + '.nii.gz'))

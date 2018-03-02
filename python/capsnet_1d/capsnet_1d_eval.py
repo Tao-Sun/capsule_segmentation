@@ -18,8 +18,10 @@ tf.app.flags.DEFINE_string('data_dir', '/tmp/',
                            """Directory where to read input data """)
 tf.app.flags.DEFINE_string('eval_data', 'test',
                            """Either 'test' or 'train_eval'.""")
-tf.app.flags.DEFINE_integer('batch_size', 25,
+tf.app.flags.DEFINE_integer('batch_size', 24,
                             """Batch size.""")
+tf.app.flags.DEFINE_integer('subject_size', 48,
+                            """How many batches constitute a subject.""")
 tf.app.flags.DEFINE_integer('file_start', 1,
                             """Start file no.""")
 tf.app.flags.DEFINE_integer('file_end', 110,
@@ -77,15 +79,36 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op):
 
             total_dices_0 = []
             total_dices_1 = []
+            assert(FLAGS.subject_size % FLAGS.batch_size == 0)
+            group_size = FLAGS.subject_size / FLAGS.batch_size
+            print('group size: %d' % group_size)
+            prediction_batches = []
+            target_batches = []
+
             step = 0
+            group = 0
             while step < num_iter and not coord.should_stop():
                 prediction_batch, target_batch = sess.run([inferred_labels_op, labels_op])
 
-                batch_dice_0, batch_dice_1 = dice(target_batch, prediction_batch)
-                total_dices_0.append(batch_dice_0)
-                total_dices_1.append(batch_dice_1)
+                prediction_batches.append(prediction_batch)
+                target_batches.append(target_batch)
+                if (step + 1) % group_size == 0:
+                    print('step: %d' % step)
+                    group += 1
 
-                save_nii(target_batch, prediction_batch, FLAGS.data_dir, step)
+                    prediction_subject = np.vstack(prediction_batches)
+                    target_subject = np.vstack(target_batches)
+
+                    subject_dice_0, subject_dice_1 = dice(target_subject, prediction_subject)
+                    print("subject_dices: %f, %f" % (subject_dice_0, subject_dice_1))
+                    total_dices_0.append(subject_dice_0)
+                    total_dices_1.append(subject_dice_1)
+
+                    save_nii(target_subject, prediction_subject, FLAGS.data_dir, group)
+
+                    prediction_batches = []
+                    target_batches = []
+
                 step += 1
 
             mean_dices_0, std_dices_0 = np.mean(total_dices_0), np.std(total_dices_0)

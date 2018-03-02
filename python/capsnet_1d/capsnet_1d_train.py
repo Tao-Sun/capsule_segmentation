@@ -9,6 +9,7 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 
 from python.capsnet_1d.capsnet_1d import inference, loss
 from python.data.hippo.hippo_input import inputs
+from tensorflow.python import debug as tf_debug
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -19,7 +20,7 @@ tf.app.flags.DEFINE_string('data_dir', '/tmp/',
                            """Directory where to read input data """)
 tf.app.flags.DEFINE_integer('num_classes', 2,
                             """Number of classes.""")
-tf.app.flags.DEFINE_integer('batch_size', 25,
+tf.app.flags.DEFINE_integer('batch_size', 12,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('file_start', 1,
                             """Start file no.""")
@@ -125,9 +126,10 @@ def train(hparams):
             for i in xrange(FLAGS.num_gpus):
                 with tf.device('/gpu:%d' % i):
                     with tf.name_scope('tower_%d' % i) as scope:
+                        batch_size = FLAGS.batch_size // max(1, FLAGS.num_gpus)
                         batched_features = inputs('train',
                                                   FLAGS.data_dir,
-                                                  FLAGS.batch_size,
+                                                  batch_size,
                                                   file_start=FLAGS.file_start,
                                                   file_end=FLAGS.file_end
                                                   )
@@ -163,16 +165,16 @@ def train(hparams):
         summaries.append(tf.summary.scalar('learning_rate', learning_rate))
 
         # Add histograms for gradients.
-        for grad, var in grads:
-            if grad is not None:
-                summaries.append(tf.summary.histogram(var.op.name + '/gradients', grad))
+        # for grad, var in grads:
+        #     if grad is not None:
+        #         summaries.append(tf.summary.histogram(var.op.name + '/gradients', grad))
 
         # Apply the gradients to adjust the shared variables.
         apply_gradient_op = optimizer.apply_gradients(grads, global_step=global_step)
 
         # Add histograms for trainable variables.
-        for var in tf.trainable_variables():
-            summaries.append(tf.summary.histogram(var.op.name, var))
+        # for var in tf.trainable_variables():
+        #     summaries.append(tf.summary.histogram(var.op.name, var))
 
         # Track the moving averages of all trainable variables.
         # variable_averages = tf.train.ExponentialMovingAverage(
@@ -199,6 +201,8 @@ def train(hparams):
             log_device_placement=FLAGS.log_device_placement)
         config.gpu_options.allow_growth = True
         sess = tf.Session(config=config)
+        # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
+        # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
         sess.run(init)
 
         # Start the queue runners.
@@ -220,7 +224,7 @@ def train(hparams):
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
-            if step % 100 == 0:
+            if step % 50 == 0:
                 num_examples_per_step = FLAGS.batch_size * FLAGS.num_gpus
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = duration / FLAGS.num_gpus
@@ -235,7 +239,7 @@ def train(hparams):
                 summary_writer.add_summary(summary_str, step)
 
             # Save the model checkpoint periodically.
-            if step % 500 == 0 or (step + 1) == FLAGS.max_steps:
+            if step % 300 == 0 or (step + 1) == FLAGS.max_steps:
                 checkpoint_path = os.path.join(FLAGS.summary_dir, 'model.ckpt')
                 saver.save(sess, checkpoint_path, global_step=step)
 
@@ -245,7 +249,7 @@ def default_hparams():
     return tf.contrib.training.HParams(
         decay_rate=0.96,
         decay_steps=2000,
-        learning_rate=0.001,
+        learning_rate=0.005,
     )
 
 

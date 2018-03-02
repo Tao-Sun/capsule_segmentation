@@ -29,14 +29,14 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
                     'weights_1',
                     [in_capsules * in_height * in_width, in_pose_length, num_classes * activation_length],
                     initializer=tf.truncated_normal_initializer(
-                        stddev=0.1, dtype=tf.float32),
+                        stddev=5e-2, dtype=tf.float32),
                     dtype=tf.float32)  # (32*4*20, 8, 2*64)
 
         with tf.name_scope('Wx_plus_b'):
             input_tiled = tf.tile(tf.expand_dims(inputs_3d, -1), [1, 1, 1, num_classes * activation_length])  # (b, 32*4*20, 8, 2*64)
             print(input_tiled.get_shape())
             votes = tf.reduce_sum(input_tiled * weights, axis=2)
-            votes_reshaped = tf.reshape(votes, [-1, in_capsules * in_height * in_width, num_classes, activation_length])  # (b, 32*4*20, 2*64)
+            votes_reshaped = tf.reshape(votes, [-1, in_capsules * in_height * in_width, num_classes, activation_length])  # (b, 32*4*20, 2, 64)
             print('votes_reshaped shape: %s' % votes_reshaped.get_shape())
 
         with tf.name_scope('routing'):
@@ -47,7 +47,7 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
                 num_dims=4,
                 input_dim=in_capsules * in_height * in_width,
                 num_routing=routing_ites)
-            print('activations shape: %s' % votes_reshaped.get_shape())
-            print('coupling_coeffs shape: %s' % coupling_coeffs.get_shape())
+            print('class capsule activations shape: %s' % votes_reshaped.get_shape())
+            print('class capsuel coupling_coeffs shape: %s' % coupling_coeffs.get_shape())
 
     return activations, coupling_coeffs
