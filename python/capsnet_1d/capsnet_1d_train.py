@@ -249,7 +249,7 @@ def default_hparams():
     return tf.contrib.training.HParams(
         decay_rate=0.96,
         decay_steps=2000,
-        learning_rate=0.005,
+        learning_rate=0.001,
     )
 
 
