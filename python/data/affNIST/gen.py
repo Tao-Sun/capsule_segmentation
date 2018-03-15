@@ -10,15 +10,17 @@ images = data['affNISTdata'][0][0][2]
 labels = data['affNISTdata'][0][0][5]
 
 
-def show(img_1, img_2, combined):
-    fig = plt.figure(figsize=(1, 3))
+def show(img_1, img_2, combined_1, combined_2):
+    fig = plt.figure(figsize=(1, 4))
 
-    fig.add_subplot(1, 3, 1)
+    fig.add_subplot(1, 4, 1)
     plt.imshow(img_1, cmap = 'gray', interpolation = 'bicubic')
-    fig.add_subplot(1, 3, 2)
+    fig.add_subplot(1, 4, 2)
     plt.imshow(img_2, cmap = 'gray', interpolation = 'bicubic')
-    fig.add_subplot(1, 3, 3)
-    plt.imshow(combined, cmap='gray', interpolation='bicubic')
+    fig.add_subplot(1, 4, 3)
+    plt.imshow(combined_1, cmap='gray', interpolation='bicubic')
+    fig.add_subplot(1, 4, 4)
+    plt.imshow(combined_2, cmap='gray', interpolation='bicubic')
 
     plt.xticks([]), plt.yticks([])  # to hide tick values on X and Y axis
     plt.show()
@@ -119,7 +121,9 @@ num = 0
 
 num_0 = []
 num_1 = []
-for i in range(0, 20):
+num_0_orig = []
+num_1_orig = []
+for i in range(0, 32):
     print('number: %d' % labels[:, i])
     img = np.reshape(images[:, i], (40, 40))
     zone = get_zone(img)
@@ -136,13 +140,16 @@ for i in range(0, 20):
 
     if i % 2 == 0:
         num_0.append(framed)
+        num_0_orig.append(img)
     else:
         num_1.append(framed)
+        num_1_orig.append(img)
 
-combined = combine(num_0[len(num_0)-1], num_1[len(num_1)-1])
+combined_1 = combine(num_0[len(num_0)-1], num_1[len(num_1)-1])
+combined_2 = combine(num_0[len(num_0)-1], num_1[len(num_1)-1])
 
-if combined is not None:
-    show(num_0[len(num_0)-1], num_1[len(num_1)-1], combined)
+if combined_1 is not None:
+    show(num_0[len(num_0)-1], num_1[len(num_1)-1], combined_1, combined_2)
 else:
     print("combine failure!")
 
