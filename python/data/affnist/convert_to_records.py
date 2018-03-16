@@ -26,11 +26,46 @@ import tensorflow as tf
 import scipy.io as sio
 import numpy as np
 from sets import Set
+import random
+# from matplotlib import pyplot as plt
 
 FLAGS = None
 
+
+def _frame(img, max_h, max_w):
+    row_range = (np.nonzero(img)[0].min(), np.nonzero(img)[0].max())
+    col_range = (np.nonzero(img)[1].min(), np.nonzero(img)[1].max())
+
+    framed_img = None
+    if (row_range[1] - row_range[0] <= 28) and (col_range[1] - col_range[0] <= 28):
+        framed_img = img[row_range[0]:row_range[1], col_range[0]:col_range[1]]
+    return framed_img
+
+
+def _get_d1_padding(total_padding):
+    before = int(random.uniform(0, 1) * total_padding)
+    after = total_padding - before
+    return before, after
+
+
+def _crop(img, height, width):
+    framed_img = _frame(img, height, width)
+
+    cropped_img = None
+    if framed_img is not None:
+        framed_shape = framed_img.shape
+        padding1_d1 = _get_d1_padding(height - framed_shape[0])
+        padding1_d2 = _get_d1_padding(width - framed_shape[1])
+        cropped_img = np.pad(framed_img,
+                             (padding1_d1, padding1_d2),
+                             'constant', constant_values=((0, 0), (0, 0)))
+
+    return cropped_img
+
+
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
 
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
@@ -44,22 +79,28 @@ def convert(images, labels, index):
 
     num = 0
     for i in range(len(images)):
-        image = np.array(np.reshape(images[i], (40, 40)), dtype=np.uint8)
-        label = int(labels[i][0])
+        cropped_img = _crop(np.reshape(images[i], (40, 40)), 28, 28)
 
-        if label in Set([1, 3]):
-            image_raw = image.tostring()
-            label_raw = np.array(np.where(image > 0, 1 if label == 1 else 2, 0), dtype=np.uint8).tostring()
-            features = tf.train.Features(feature={
-                'height': _int64_feature(image.shape[0]),
-                'width': _int64_feature(image.shape[1]),
-                # 'name': _bytes_feature(name),
-                'image_raw': _bytes_feature(image_raw),
-                'label_raw': _bytes_feature(label_raw)})
-            example = tf.train.Example(features=features)
-            writer.write(example.SerializeToString())
+        if cropped_img is not None:
+            # plt.imshow(cropped_img)
+            # plt.xticks([]), plt.yticks([])  # to hide tick values on X and Y axis
+            # plt.show()
+            image = np.array(cropped_img, dtype=np.uint8)
+            label = int(labels[i][0])
 
-            num += 1
+            if label in Set([3]):
+                image_raw = image.tostring()
+                label_raw = np.array(np.where(image > 0, 1, 0), dtype=np.uint8).tostring()
+                features = tf.train.Features(feature={
+                    'height': _int64_feature(image.shape[0]),
+                    'width': _int64_feature(image.shape[1]),
+                    # 'name': _bytes_feature(name),
+                    'image_raw': _bytes_feature(image_raw),
+                    'label_raw': _bytes_feature(label_raw)})
+                example = tf.train.Example(features=features)
+                writer.write(example.SerializeToString())
+
+                num += 1
     writer.close()
 
     return num

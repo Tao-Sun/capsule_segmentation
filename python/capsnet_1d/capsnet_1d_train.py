@@ -21,13 +21,11 @@ tf.app.flags.DEFINE_string('data_dir', '/tmp/',
 tf.flags.DEFINE_string('dataset', 'affnist',
                        'The dataset to use for the experiment.'
                        'hippo, affnist.')
-tf.app.flags.DEFINE_integer('num_classes', 3,
-                            """Number of classes.""")
 tf.app.flags.DEFINE_integer('batch_size', 6,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('file_start', 0,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 200,
+tf.app.flags.DEFINE_integer('file_end', 110,
                             """End file no.""")
 tf.app.flags.DEFINE_integer('max_steps', 100000,
                             """Number of batches to run.""")
@@ -39,7 +37,7 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
 
 def get_batched_features(batch_size):
     batched_features = None
-    if FLAGS.dataset == 'hipp0':
+    if FLAGS.dataset == 'hippo':
         batched_features = hippo_input.inputs('train',
                                               FLAGS.data_dir,
                                               batch_size,
@@ -236,12 +234,12 @@ def train(hparams):
         summary_writer = tf.summary.FileWriter(FLAGS.summary_dir, sess.graph)
 
         for step in xrange(FLAGS.max_steps):
+            # format_str = ('\n%s: step %d')
+            # print(format_str % (datetime.now(), step))
+
             start_time = time.time()
             _, loss_value = sess.run([train_op, loss])
             duration = time.time() - start_time
-
-            format_str = ('\n%s: step %d')
-            print(format_str % (datetime.now(), step))
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
@@ -270,7 +268,7 @@ def default_hparams():
     return tf.contrib.training.HParams(
         decay_rate=0.96,
         decay_steps=500,
-        learning_rate=0.005,
+        learning_rate=0.001,
     )
 
 

@@ -5,9 +5,8 @@ import numpy as np
 import tensorflow as tf
 
 from python.capsnet_1d.capsnet_1d import inference
-from python.data.hippo.hippo_input import dice
-from python.data.hippo.hippo_input import save_nii
-from python.data.hippo.hippo_input import inputs
+from python.data.hippo import hippo_input
+from python.data.hippo import affnist_input
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -18,6 +17,9 @@ tf.app.flags.DEFINE_string('data_dir', '/tmp/',
                            """Directory where to read input data """)
 tf.app.flags.DEFINE_string('eval_data', 'test',
                            """Either 'test' or 'train_eval'.""")
+tf.flags.DEFINE_string('dataset', 'affnist',
+                       'The dataset to use for the experiment.'
+                       'hippo, affnist.')
 tf.app.flags.DEFINE_integer('batch_size', 24,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('subject_size', 48,
@@ -79,40 +81,46 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op):
 
             total_dices_0 = []
             total_dices_1 = []
-            assert(FLAGS.subject_size % FLAGS.batch_size == 0)
-            group_size = FLAGS.subject_size / FLAGS.batch_size
-            print('group size: %d' % group_size)
-            prediction_batches = []
-            target_batches = []
+
+            if FLAGS.dataset == "hippo":
+                assert(FLAGS.subject_size % FLAGS.batch_size == 0)
+                group_size = FLAGS.subject_size / FLAGS.batch_size
+                print('group size: %d' % group_size)
+                prediction_batches = []
+                target_batches = []
 
             step = 0
             group = 0
             while step < num_iter and not coord.should_stop():
                 prediction_batch, target_batch = sess.run([inferred_labels_op, labels_op])
 
-                prediction_batches.append(prediction_batch)
-                target_batches.append(target_batch)
-                if (step + 1) % group_size == 0:
-                    group += 1
+                if FLAGS.dataset == "hippo":
+                    prediction_batches.append(prediction_batch)
+                    target_batches.append(target_batch)
+                    if (step + 1) % group_size == 0:
+                        group += 1
 
-                    prediction_subject = np.vstack(prediction_batches)
-                    target_subject = np.vstack(target_batches)
-                    prediction_batches = []
-                    target_batches = []
+                        prediction_subject = np.vstack(prediction_batches)
+                        target_subject = np.vstack(target_batches)
+                        prediction_batches = []
+                        target_batches = []
 
-                    subject_dice_0, subject_dice_1 = dice(target_subject, prediction_subject)
-                    print("subject_dices: %f, %f" % (subject_dice_0, subject_dice_1))
-                    total_dices_0.append(subject_dice_0)
-                    total_dices_1.append(subject_dice_1)
+                        subject_dice_0, subject_dice_1 = hippo_input.dice(target_subject, prediction_subject)
+                        print("subject_dices: %f, %f" % (subject_dice_0, subject_dice_1))
+                        total_dices_0.append(subject_dice_0)
+                        total_dices_1.append(subject_dice_1)
 
-                    save_nii(target_subject, prediction_subject, FLAGS.data_dir, group)
+                        hippo_input.save_nii(target_subject, prediction_subject, FLAGS.data_dir, group)
+                elif FLAGS.dataset == 'affnist':
+                    dice = affnist_input.dice(target_batch, prediction_batch)
+                    total_dices_0 = np.concatenate((total_dices_0, dice))
 
                 step += 1
 
             mean_dices_0, std_dices_0 = np.mean(total_dices_0), np.std(total_dices_0)
-            mean_dices_1, std_dices_1 = np.mean(total_dices_1), np.std(total_dices_0)
-            print('\nmean dices:  %f, %f' % (np.mean(total_dices_0), np.mean(total_dices_1)))
-            print('dices std: %f, %f' % (np.std(total_dices_0), np.std(total_dices_0)))
+            # mean_dices_1, std_dices_1 = np.mean(total_dices_1), np.std(total_dices_0)
+            print('\nmean dices:  %f' % (np.mean(total_dices_0)))
+            print('dices std: %f' % (np.std(total_dices_0)))
 
             summary = tf.Summary()
             summary.ParseFromString(sess.run(summary_op))

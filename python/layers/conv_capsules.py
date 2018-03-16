@@ -60,7 +60,7 @@ def conv_capsule1d(inputs, kernel_size, stride, routing_ites, in_capsules, out_c
             #     num_dims=4,
             #     input_dim=in_capsules*kernel_size*kernel_size,
             #     num_routing=routing_ites,
-            #     p=True)
+            #     p=" conv capsules")
             activations = tf.reduce_sum(votes, axis=1)  # (b, 32*6*6, 8_out)
             activations = tf.reshape(activations,
                                      [batch_size, out_capsules, spatial_size_1, spatial_size_2, activation_length])  # (b, 32, 6, 6, 8)

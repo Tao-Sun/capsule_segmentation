@@ -28,6 +28,8 @@ def primary_caps1d(inputs, kernel_size, out_capsules, stride, padding, activatio
         conv_height, conv_width = conv_shape[2].value, conv_shape[3].value
         conv_reshaped = tf.reshape(conv,
                                    [-1, 1, out_capsules, activation_length, conv_height, conv_width])
+        # conv_reshaped = tf.check_numerics(conv_reshaped, message="nan or inf from: convolution in primary layer")
+        # conv_reshaped = tf.Print(conv_reshaped, [tf.constant("conv_reshaped"), conv_reshaped[0][0][0][0][0:24][0:24]], summarize=3)
         print('votes shape: %s' % conv_reshaped.get_shape())
 
         with tf.name_scope('routing'):
@@ -36,7 +38,8 @@ def primary_caps1d(inputs, kernel_size, out_capsules, stride, padding, activatio
                 coupling_coeffs_shape=tf.stack([conv_shape[0], 1, out_capsules, conv_height, conv_width]),
                 num_dims=6,
                 input_dim=1,
-                num_routing=1)
+                num_routing=1,
+                p=" primary")
             activations_transposed = tf.transpose(activations, [0, 1, 3, 4, 2])  # (b, 32, 4, 20, 8)
 
     return activations_transposed

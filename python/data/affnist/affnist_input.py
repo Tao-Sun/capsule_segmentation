@@ -57,11 +57,11 @@ def read_and_decode(filename_queue):
 
     image = tf.decode_raw(features['image_raw'], tf.uint8)
     image = tf.reshape(image, [1, height, width])
-    image.set_shape([1, 40, 40])
+    image.set_shape([1, 28, 28])
 
     label = tf.decode_raw(features['label_raw'], tf.uint8)
     label = tf.reshape(label, [height, width])
-    label.set_shape([40, 40])
+    label.set_shape([28, 28])
 
     # OPTIONAL: Could reshape into a 28x28 image and apply distortions
     # here.  Since we are not applying any distortions in this
@@ -134,45 +134,27 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
                 num_threads=2,
                 capacity=1000 + 3 * batch_size)
 
-        batched_features['num_classes'] = 3
+        batched_features['num_classes'] = 2
 
         return batched_features
 
 
-def dice(target_subject, prediction_subject):
-    subject_intersection_0 = 0.0
-    subject_union_0 = 0.0
-    subject_intersection_1 = 0.0
-    subject_union_1 = 0.0
-    for i in range(target_subject.shape[0]):
-        # print("targets[i] shape" + str(targets[i].shape))
-        # print("predictions[i] shape" + str(predictions[i].shape))
-        target_0 = target_subject[i].flatten()
-        prediction_0 = prediction_subject[i].flatten()
+def dice(target_batch, prediction_batch):
+    smooth = 1.0
+    batch_dices = []
+
+    for i in range(len(target_batch)):
+        target = target_batch[i].flatten()
+        prediction = prediction_batch[i].flatten()
         # print(target_0[1:100])
         # print(prediction_0[1:100])
-        intersection_0 = np.sum(np.multiply(target_0, prediction_0))
-        subject_intersection_0 += intersection_0
-        union_0 = np.sum(target_0) + np.sum(prediction_0)
-        subject_union_0 += union_0
+        intersection  = np.sum(np.multiply(target, prediction))
+        union = np.sum(target) + np.sum(prediction)
+        dice = (2.0 * intersection + smooth) / (union + smooth)
+        batch_dices.append(dice)
 
-        target_1 = 1 - target_0
-        # print(target_1[1:100])
-        prediction_1 = 1 - prediction_0
-        # print(prediction_1[1:100])
-        intersection_1 = np.sum(np.multiply(target_1, prediction_1))
-        subject_intersection_1 += intersection_1
-        # print("positive_target_indices shape:" + str(positive_target_indices))
-        # print("positive_pred_indices shape:" + str(positive_pred_indices))
+    return batch_dices
 
-        union_1 = np.sum(target_1) + np.sum(prediction_1)
-        subject_union_1 += union_1
-
-    smooth= 1.0
-    batch_dice_0 = (2.0 * subject_intersection_0 + smooth) / (subject_union_0 + smooth)
-    batch_dice_1 = (2.0 * subject_intersection_1 + smooth) / (subject_union_1 + smooth)
-
-    return batch_dice_0, batch_dice_1
 
 if __name__ == '__main__':
     tfrecords_filename = os.path.join(sys.argv[1], '1.tfrecords')
@@ -225,7 +207,7 @@ if __name__ == '__main__':
             framed1 = np.where(img1[frame2[0][0]:frame2[0][1], frame2[1][0]:frame2[1][1]]>0, 1, 0)
             print("image example:")
             print(framed1.shape)
-            io.imshow(framed1, cmap='gray')
+            io.imshow(img1, cmap='gray')
             io.show()
 
             framed2 = np.where(anno1[frame2[0][0]:frame2[0][1], frame2[1][0]:frame2[1][1]]>0, 1, 0)
@@ -234,7 +216,7 @@ if __name__ == '__main__':
             diff = np.subtract(framed1, framed2)
             print('diff:')
             print(diff)
-            io.imshow(framed2, cmap='gray')
+            io.imshow(anno1, cmap='gray')
             io.show()
 
             io.imshow(img[1, 0, :, :], cmap='gray')

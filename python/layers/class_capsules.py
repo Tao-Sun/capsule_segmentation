@@ -15,6 +15,7 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
     :return:
     """
 
+    inputs = tf.check_numerics(inputs, message="nan or inf from: inputs in class capsules")
     inputs_shape = inputs.get_shape()  # (b, 32, 4, 20, 8)
     in_capsules = inputs_shape[1].value
     in_height, in_width = inputs_shape[2].value, inputs_shape[3].value
@@ -34,9 +35,9 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
 
         with tf.name_scope('Wx_plus_b'):
             input_tiled = tf.tile(tf.expand_dims(inputs_3d, -1), [1, 1, 1, num_classes * activation_length])  # (b, 32*4*20, 8, 2*64)
-            print(input_tiled.get_shape())
             votes = tf.reduce_sum(input_tiled * weights, axis=2)
             votes_reshaped = tf.reshape(votes, [-1, in_capsules * in_height * in_width, num_classes, activation_length])  # (b, 32*4*20, 2, 64)
+            votes_reshaped = tf.check_numerics(votes_reshaped, message="nan or inf from: votes_reshaped in class capsules")
             print('votes_reshaped shape: %s' % votes_reshaped.get_shape())
 
         with tf.name_scope('routing'):
@@ -46,7 +47,11 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
                 coupling_coeffs_shape=coupling_coeffs_shape,
                 num_dims=4,
                 input_dim=in_capsules * in_height * in_width,
-                num_routing=routing_ites)
+                num_routing=routing_ites,
+                p=" class capsules")
+            # activations = tf.Print(activations, [tf.constant("class_caps_activations"), activations])
+            activations = tf.check_numerics(activations, message="nan or inf from: activations in class capsules")
+            coupling_coeffs = tf.check_numerics(coupling_coeffs, message="nan or inf from: coupling_coeffs in class capsules")
             print('class capsule activations shape: %s' % votes_reshaped.get_shape())
             print('class capsuel coupling_coeffs shape: %s' % coupling_coeffs.get_shape())
 
