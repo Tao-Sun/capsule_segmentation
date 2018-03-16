@@ -3,7 +3,7 @@ import numpy as np
 
 
 
-def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routing):
+def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routing, p=False):
     """
 
     :param votes:
@@ -42,14 +42,18 @@ def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routi
     def _body(i, logits, activations):
         """Routing while loop."""
         # route: [batch, input_dim, output_dim, ...]
-        route = tf.nn.log_softmax(logits, dim=2)
-        # votes_trans_print = tf.Print(votes_trans, [votes_trans, route])
-        # preactivate_unrolled = route * votes_trans_print
-        preactivate_unrolled = route * votes_trans
+        # route = tf.nn.log_softmax(logits, dim=2)
+        route = tf.nn.softmax(logits, dim=2)
+        if p == True:
+            route_print = tf.Print(route, [i, votes, route])
+            preactivate_unrolled = route_print * votes_trans
+        else:
+            preactivate_unrolled = route * votes_trans
         preact_trans = tf.transpose(preactivate_unrolled, r_t_shape)
         preactivate = tf.reduce_sum(preact_trans, axis=1)
 
         activation = squash(preactivate)
+        # activation = tf.Print(activation, [i, activation])
         activations = activations.write(i, activation)
 
         # distances: [batch, input_dim, output_dim]
@@ -59,7 +63,13 @@ def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routi
         act_replicated = tf.tile(act_3d, tile_shape)
 
         distances = tf.reduce_sum(votes * act_replicated, axis=3)
-        logits += distances
+        distances_print = tf.Print(distances, [i, distances])
+        if p == True:
+            logits += distances_print
+            logits = tf.Print(logits, [i, logits])
+        else:
+            logits += distances
+
         return (i + 1, logits, activations)
 
     activations = tf.TensorArray(

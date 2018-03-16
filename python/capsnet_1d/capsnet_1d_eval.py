@@ -28,7 +28,7 @@ tf.app.flags.DEFINE_integer('file_end', 110,
                             """End file no.""")
 tf.app.flags.DEFINE_string('checkpoint_dir', '/tmp/cifar10_train',
                            """Directory where to read model checkpoints.""")
-tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 1,
+tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 2,
                             """How often to run the eval.""")
 tf.app.flags.DEFINE_integer('num_examples', 10000,
                             """Number of examples to run.""")
@@ -93,11 +93,12 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op):
                 prediction_batches.append(prediction_batch)
                 target_batches.append(target_batch)
                 if (step + 1) % group_size == 0:
-                    print('step: %d' % step)
                     group += 1
 
                     prediction_subject = np.vstack(prediction_batches)
                     target_subject = np.vstack(target_batches)
+                    prediction_batches = []
+                    target_batches = []
 
                     subject_dice_0, subject_dice_1 = dice(target_subject, prediction_subject)
                     print("subject_dices: %f, %f" % (subject_dice_0, subject_dice_1))
@@ -105,9 +106,6 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op):
                     total_dices_1.append(subject_dice_1)
 
                     save_nii(target_subject, prediction_subject, FLAGS.data_dir, group)
-
-                    prediction_batches = []
-                    target_batches = []
 
                 step += 1
 

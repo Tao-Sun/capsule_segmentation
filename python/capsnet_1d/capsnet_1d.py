@@ -30,39 +30,54 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='vector_net
         # Images shape (b, 1, 24, 56) -> conv 5x5 filters, 32 output channels, strides 2 with padding, ReLU
         # nets -> (b, 256, 16, 48)
         print('inputs shape: %s' % inputs.get_shape())
+
+        print("\nconv1 layer:")
         conv1 = conv2d(
             inputs,
-            kernel=5, out_channels=256, stride=1, padding='VALID',
+            kernel=9, out_channels=256, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv1'
         )
         print('conv1 shape: %s' % conv1.get_shape())
 
+        print("\nconv2 layer:")
+        conv2 = conv2d(
+            conv1,
+            kernel=5, out_channels=256, stride=1, padding='VALID',
+            activation_fn=tf.nn.relu, name='relu_conv2'
+        )
+        print('conv2 shape: %s' % conv1.get_shape())
+
         # PrimaryCaps
         # (b, 256, 16, 48) -> capsule 1x1 filter, 32 output capsule, strides 1 without padding
         # nets -> activations (?, 14, 14, 32))
-        primary_out_capsules = 16
+        print("\nprimary layer:")
+        primary_out_capsules = 28
         primary_caps_activations = primary_caps1d(
-            conv1,
+            conv2,
             kernel_size=5, out_capsules=primary_out_capsules, stride=1,
             padding='VALID', activation_length=8, name='primary_caps'
         )  # (b, 32, 4, 20, 8)
 
-        conv_out_capsules = 16
-        conv_caps_activations, _ = conv_capsule1d(
+        print("\nconv capsule layer:")
+        conv_out_capsules = 24
+        conv_caps_activations = conv_capsule1d(
             primary_caps_activations, kernel_size=3,
             stride=2, routing_ites=routing_ites, in_capsules=primary_out_capsules,
             out_capsules=conv_out_capsules, batch_size=batch_size, name='conv_caps'
         )  # (b, 32*4*20, 8)
 
         # (b, 32, 4, 20, 8) -> # (b, 32*4*20, 2*64)
+        print("\nclass capsule layer:")
         class_caps_activations, class_coupling_coeffs = class_caps1d(
             conv_caps_activations,
-            num_classes=num_classes, activation_length=64, routing_ites=routing_ites,
+            num_classes=num_classes, activation_length=24, routing_ites=routing_ites,
             batch_size=batch_size, name='class_capsules')
         print('class_caps_activations shape: %s' % class_caps_activations.get_shape())
 
-        remakes_flatten = _remake(class_caps_activations, image_height * image_width) if remake else None
+        # remakes_flatten = _remake(class_caps_activations, image_height * image_width) if remake else None
+        remakes_flatten = None
 
+        print("\ndecode layers:")
         label_logits = _decode(
             conv_caps_activations, conv_out_capsules,
             coupling_coeffs=class_coupling_coeffs,
@@ -112,10 +127,15 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size):
         kernel=5, out_channels=num_classes, stride=1,
         activation_fn=tf.nn.relu, name='deconv2'
     )
-    label_logits = deconv(
+    deconv3 = deconv(
         deconv2,
         kernel=5, out_channels=num_classes, stride=1,
         activation_fn=tf.nn.relu, name='deconv3'
+    )
+    label_logits = deconv(
+        deconv3,
+        kernel=9, out_channels=num_classes, stride=1,
+        activation_fn=tf.nn.relu, name='deconv4'
     )
 
     return label_logits
@@ -134,16 +154,16 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
     """
 
     with tf.name_scope('loss'):
-        with tf.name_scope('remake'):
-            image_flatten = tf.contrib.layers.flatten(images)
-            distance = tf.pow(image_flatten - remakes_flatten, 2)
-            remake_loss = tf.reduce_sum(distance, axis=-1)
-
-            batch_remake_loss = tf.reduce_mean(remake_loss)
-            balanced_remake_loss = 0.05 * batch_remake_loss
-
-            tf.add_to_collection('losses', balanced_remake_loss)
-            tf.summary.scalar('remake_loss', balanced_remake_loss)
+        # with tf.name_scope('remake'):
+        #     image_flatten = tf.contrib.layers.flatten(images)
+        #     distance = tf.pow(image_flatten - remakes_flatten, 2)
+        #     remake_loss = tf.reduce_sum(distance, axis=-1)
+        #
+        #     batch_remake_loss = tf.reduce_mean(remake_loss)
+        #     balanced_remake_loss = 0.05 * batch_remake_loss
+        #
+        #     tf.add_to_collection('losses', balanced_remake_loss)
+        #     tf.summary.scalar('remake_loss', balanced_remake_loss)
 
         # with tf.name_scope('margin'):
         #     labels_shape = labels2d.get_shape()

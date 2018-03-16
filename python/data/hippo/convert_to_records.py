@@ -38,7 +38,7 @@ def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
-def convert_to():
+def convert():
     """Converts a dataset to tfrecords."""
     data_dir = FLAGS.dir
     print('Reading', data_dir)
@@ -89,7 +89,7 @@ def _write_file(name, images, labels, names):
 
 def main(unused_argv):
     # Get the data.
-    convert_to()
+    convert()
     # Convert to Examples and write the result to TFRecords.
     # convert_to(images, labels, FLAGS.name)
     # convert_to(data_sets.validation, 'validation')

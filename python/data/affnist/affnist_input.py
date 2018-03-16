@@ -31,7 +31,6 @@ from __future__ import print_function
 import os.path
 import sys
 
-import nibabel as nib
 import numpy as np
 import skimage.io as io
 import tensorflow as tf
@@ -58,11 +57,11 @@ def read_and_decode(filename_queue):
 
     image = tf.decode_raw(features['image_raw'], tf.uint8)
     image = tf.reshape(image, [1, height, width])
-    image.set_shape([1, 24, 56])
+    image.set_shape([1, 40, 40])
 
     label = tf.decode_raw(features['label_raw'], tf.uint8)
     label = tf.reshape(label, [height, width])
-    label.set_shape([24, 56])
+    label.set_shape([40, 40])
 
     # OPTIONAL: Could reshape into a 28x28 image and apply distortions
     # here.  Since we are not applying any distortions in this
@@ -71,7 +70,7 @@ def read_and_decode(filename_queue):
 
     # Convert from [0, 255] -> [-0.5, 0.5] floats.
     image = tf.cast(image, tf.float32) * (1. / 255)
-    label = tf.cast(tf.cast(label, tf.float32) * (1. / 255), tf.int32)
+    label = tf.cast(label, tf.int32)
 
     return image, label
 
@@ -135,7 +134,7 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
                 num_threads=2,
                 capacity=1000 + 3 * batch_size)
 
-        batched_features['num_classes'] = 2
+        batched_features['num_classes'] = 3
 
         return batched_features
 
@@ -175,20 +174,8 @@ def dice(target_subject, prediction_subject):
 
     return batch_dice_0, batch_dice_1
 
-
-def save_nii(target, prediction, save_dir, file_no):
-    batch_size = target.shape[0]
-    height = target.shape[1]
-    width = target.shape[2]
-
-    target_nii = nib.Nifti1Image(np.reshape(target, (batch_size, height, width)), np.eye(4))
-    prediction_nii = nib.Nifti1Image(np.reshape(prediction, (batch_size, height, width)),
-                                     np.eye(4))
-    nib.save(target_nii, os.path.join(save_dir, 't_' + str(file_no) + '.nii.gz'))
-    nib.save(prediction_nii, os.path.join(save_dir, 'p_' + str(file_no) + '.nii.gz'))
-
 if __name__ == '__main__':
-    tfrecords_filename = os.path.join(sys.argv[1], 'train.tfrecords')
+    tfrecords_filename = os.path.join(sys.argv[1], '1.tfrecords')
     print(tfrecords_filename)
 
     filename_queue = tf.train.string_input_producer(
@@ -211,26 +198,46 @@ if __name__ == '__main__':
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(coord=coord)
 
+
+        def frame(img):
+            row_range = (np.nonzero(img)[0].min(), np.nonzero(img)[0].max())
+            col_range = (np.nonzero(img)[1].min(), np.nonzero(img)[1].max())
+
+            zone = (row_range, col_range)
+            return zone
+
         img, anno = sess.run([images, annotations])
 
         # Let's read off 3 batches just for example
-        for i in range(4):
+        for i in range(1):
             img, anno = sess.run([images, annotations])
-            print(anno.shape)
-
-            print('current batch')
+            print('images shape: %s' % str(img.shape))
+            print('anno shape: %s' % str(anno.shape))
 
             # We selected the batch size of two
             # So we should get two image pairs in each batch
             # Let's make sure it is random
+            img1 = img[0, 0, :, :]
+            # frame1 = frame(img)
+            anno1 = anno[0, :, :]
+            frame2 = frame(anno1)
 
-            io.imshow(img[0, :, :], cmap='gray')
+            framed1 = np.where(img1[frame2[0][0]:frame2[0][1], frame2[1][0]:frame2[1][1]]>0, 1, 0)
+            print("image example:")
+            print(framed1.shape)
+            io.imshow(framed1, cmap='gray')
             io.show()
 
-            io.imshow(anno[0, :, :], cmap='gray')
+            framed2 = np.where(anno1[frame2[0][0]:frame2[0][1], frame2[1][0]:frame2[1][1]]>0, 1, 0)
+            print("anno example:")
+            print(framed2.shape)
+            diff = np.subtract(framed1, framed2)
+            print('diff:')
+            print(diff)
+            io.imshow(framed2, cmap='gray')
             io.show()
 
-            io.imshow(img[1, :, :], cmap='gray')
+            io.imshow(img[1, 0, :, :], cmap='gray')
             io.show()
 
             io.imshow(anno[1, :, :], cmap='gray')

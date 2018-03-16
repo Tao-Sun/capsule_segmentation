@@ -45,28 +45,29 @@ def conv_capsule1d(inputs, kernel_size, stride, routing_ites, in_capsules, out_c
             # Generate the votes by multiply it with the transformation matrices
             votes = mat_transform(inputs_tiled, out_capsules, kernel_size,
                                   activation_length, batch_size, spatial_size_1,
-                                  spatial_size_2)  # (b, 32, 32, 6, 6, 3x3=9, 8, 1)
+                                  spatial_size_2)  # (b, 32*9, 32*6*6, 8_out)
 
             # activations = tf.reduce_sum(votes_reshaped, axis=1)
-            print('votes_reshaped shape: %s' % votes.get_shape())
+            print('votes shape: %s' % votes.get_shape())
 
         with tf.variable_scope('routing'):
-            coupling_coeffs_shape = tf.stack(
-                [batch_size, in_capsules * kernel_size * kernel_size, out_capsules * spatial_size_1 * spatial_size_2])  # (b, 32*9, 32*6*6)
-            # coupling_coeffs = tf.ones(coupling_coeffs_shape)
-            activations, coupling_coeffs = dynamic_routing(
-                votes=votes,
-                coupling_coeffs_shape=coupling_coeffs_shape,
-                num_dims=4,
-                input_dim=in_capsules * kernel_size * kernel_size,
-                num_routing=routing_ites)
-
+            # coupling_coeffs_shape = tf.stack(
+            #     [batch_size, in_capsules*kernel_size*kernel_size, out_capsules*spatial_size_1*spatial_size_2])  # (b, 32*9, 32*6*6)
+            # # coupling_coeffs = tf.ones(coupling_coeffs_shape)
+            # activations, coupling_coeffs = dynamic_routing(
+            #     votes=votes,
+            #     coupling_coeffs_shape=coupling_coeffs_shape,
+            #     num_dims=4,
+            #     input_dim=in_capsules*kernel_size*kernel_size,
+            #     num_routing=routing_ites,
+            #     p=True)
+            activations = tf.reduce_sum(votes, axis=1)  # (b, 32*6*6, 8_out)
             activations = tf.reshape(activations,
                                      [batch_size, out_capsules, spatial_size_1, spatial_size_2, activation_length])  # (b, 32, 6, 6, 8)
-            print('convolutional capsule activations shape: %s' % activations.get_shape())
-            print('convolutional capsule coupling_coeffs shape: %s' % coupling_coeffs.get_shape())
+            print('activations shape: %s' % activations.get_shape())
 
-        return activations, coupling_coeffs
+        # return activations, coupling_coeffs
+        return activations
 
 
 def kernel_tile(inputs, kernel, stride):
@@ -131,11 +132,13 @@ def mat_transform(inputs, output_cap_size, kernel_size, activation_length, batch
     inputs = tf.reshape(inputs, [batch_size, input_cap_size*kernel_size*kernel_size,
                                  output_cap_size*spatial_size_1*spatial_size_2, activation_length, activation_length])  # (b, 32*9, 32*6*6, 8_in, 8_out)
 
-    w = slim.variable(
+    w = tf.contrib.framework.variable(
         'w',
         shape=[1, input_cap_size*kernel_size*kernel_size, output_cap_size, activation_length, activation_length],
         dtype=tf.float32,
-        initializer=tf.truncated_normal_initializer(stddev=5e-5))  # (1, 32*9, 32, 8_in, 8_out)
+        # initializer=tf.truncated_normal_initializer(stddev=5e-5))
+        initializer=tf.random_normal_initializer(stddev=0.01))  # (1, 32*9, 32, 8_in, 8_out)
+
     # reshape to avoid tile rank restriction.
     w = tf.reshape(w, [1, input_cap_size*kernel_size*kernel_size, output_cap_size, 1,
                        activation_length, activation_length])  # (1, 32*9, 32, 1, 8_in, 8_out)
@@ -143,6 +146,11 @@ def mat_transform(inputs, output_cap_size, kernel_size, activation_length, batch
     w = tf.tile(w, [batch_size, 1, 1, spatial_size_1 * spatial_size_2, 1, 1])  # (b, 32*9, 32, 6*6, 8_int, 8_out)
     w = tf.reshape(w, [batch_size, input_cap_size*kernel_size * kernel_size, output_cap_size*spatial_size_1*spatial_size_2,
                        activation_length, activation_length])  # (b, 32*9, 32*6*6, 8_int, 8_out)
-    votes = tf.reduce_sum(inputs * w, axis=4)  # (b, 32*9, 32*6*6, 8_out)
+
+    inputs = tf.Print(inputs, [inputs])
+    multi = inputs * w
+    multi = tf.Print(multi, [multi])
+    votes = tf.reduce_sum(multi, axis=4)  # (b, 32*9, 32*6*6, 8_out)
+    votes = tf.Print(votes, [votes])
 
     return votes  # (b, 32*9, 32*6*6, 8_out)

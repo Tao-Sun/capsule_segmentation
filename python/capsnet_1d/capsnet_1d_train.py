@@ -8,8 +8,8 @@ import tensorflow as tf
 from six.moves import xrange  # pylint: disable=redefined-builtin
 
 from python.capsnet_1d.capsnet_1d import inference, loss
-from python.data.hippo.hippo_input import inputs
-from tensorflow.python import debug as tf_debug
+from python.data.affnist import affnist_input
+from python.data.hippo import hippo_input
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -18,13 +18,16 @@ tf.app.flags.DEFINE_string('summary_dir', '/tmp/',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('data_dir', '/tmp/',
                            """Directory where to read input data """)
-tf.app.flags.DEFINE_integer('num_classes', 2,
+tf.flags.DEFINE_string('dataset', 'affnist',
+                       'The dataset to use for the experiment.'
+                       'hippo, affnist.')
+tf.app.flags.DEFINE_integer('num_classes', 3,
                             """Number of classes.""")
-tf.app.flags.DEFINE_integer('batch_size', 12,
+tf.app.flags.DEFINE_integer('batch_size', 6,
                             """Batch size.""")
-tf.app.flags.DEFINE_integer('file_start', 1,
+tf.app.flags.DEFINE_integer('file_start', 0,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 110,
+tf.app.flags.DEFINE_integer('file_end', 200,
                             """End file no.""")
 tf.app.flags.DEFINE_integer('max_steps', 100000,
                             """Number of batches to run.""")
@@ -32,6 +35,26 @@ tf.app.flags.DEFINE_integer('num_gpus', 2,
                             """How many GPUs to use.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
+
+
+def get_batched_features(batch_size):
+    batched_features = None
+    if FLAGS.dataset == 'hipp0':
+        batched_features = hippo_input.inputs('train',
+                                              FLAGS.data_dir,
+                                              batch_size,
+                                              file_start=FLAGS.file_start,
+                                              file_end=FLAGS.file_end
+                                              )
+    elif FLAGS.dataset == 'affnist':
+        batched_features = affnist_input.inputs('train',
+                                                FLAGS.data_dir,
+                                                batch_size,
+                                                file_start=FLAGS.file_start,
+                                                file_end=FLAGS.file_end
+                                                )
+
+    return batched_features
 
 
 def tower_loss(scope, images, labels2d, num_classes):
@@ -127,12 +150,7 @@ def train(hparams):
                 with tf.device('/gpu:%d' % i):
                     with tf.name_scope('tower_%d' % i) as scope:
                         batch_size = FLAGS.batch_size // max(1, FLAGS.num_gpus)
-                        batched_features = inputs('train',
-                                                  FLAGS.data_dir,
-                                                  batch_size,
-                                                  file_start=FLAGS.file_start,
-                                                  file_end=FLAGS.file_end
-                                                  )
+                        batched_features = get_batched_features(batch_size)
 
                         image_batch = batched_features['images']
                         label_batch = batched_features['labels']
@@ -222,6 +240,9 @@ def train(hparams):
             _, loss_value = sess.run([train_op, loss])
             duration = time.time() - start_time
 
+            format_str = ('\n%s: step %d')
+            print(format_str % (datetime.now(), step))
+
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
             if step % 50 == 0:
@@ -248,8 +269,8 @@ def default_hparams():
     """Builds an HParam object with default hyperparameters."""
     return tf.contrib.training.HParams(
         decay_rate=0.96,
-        decay_steps=2000,
-        learning_rate=0.001,
+        decay_steps=500,
+        learning_rate=0.005,
     )
 
 

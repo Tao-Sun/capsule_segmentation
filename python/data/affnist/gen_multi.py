@@ -26,7 +26,7 @@ def show(img_1, img_2, combined_1, combined_2):
     plt.show()
 
 
-def get_zone(img):
+def frame(img):
     row_range = (np.nonzero(img)[0].min(), np.nonzero(img)[0].max())
     col_range = (np.nonzero(img)[1].min(), np.nonzero(img)[1].max())
 
@@ -126,13 +126,13 @@ num_1_orig = []
 for i in range(0, 32):
     print('number: %d' % labels[:, i])
     img = np.reshape(images[:, i], (40, 40))
-    zone = get_zone(img)
-    framed = img[zone[0][0]:zone[0][1], zone[1][0]:zone[1][1]]
+    frame = frame(img)
+    framed = img[frame[0][0]:frame[0][1], frame[1][0]:frame[1][1]]
     #show(img, img[zone[0][0]:zone[0][1], zone[1][0]:zone[1][1]])
     print(framed)
 
-    rows = zone[0][1]-zone[0][0]
-    cols = zone[1][1]-zone[1][0]
+    rows = frame[0][1] - frame[0][0]
+    cols = frame[1][1] - frame[1][0]
     print('zone: (%d, %d)' % (rows, cols))
 
     if labels[:, i] == 1 or labels[:, i] == 3:

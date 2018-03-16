@@ -28,6 +28,7 @@ def primary_caps1d(inputs, kernel_size, out_capsules, stride, padding, activatio
         conv_height, conv_width = conv_shape[2].value, conv_shape[3].value
         conv_reshaped = tf.reshape(conv,
                                    [-1, 1, out_capsules, activation_length, conv_height, conv_width])
+        print('votes shape: %s' % conv_reshaped.get_shape())
 
         with tf.name_scope('routing'):
             activations, _ = dynamic_routing(

@@ -1,5 +1,4 @@
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
 
 
 def conv2d(inputs, kernel, out_channels, stride, padding, name, data_format='NCHW', is_train=True, activation_fn=None):
