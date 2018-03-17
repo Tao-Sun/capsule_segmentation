@@ -21,11 +21,11 @@ tf.app.flags.DEFINE_string('data_dir', '/tmp/',
 tf.flags.DEFINE_string('dataset', 'affnist',
                        'The dataset to use for the experiment.'
                        'hippo, affnist.')
-tf.app.flags.DEFINE_integer('batch_size', 6,
+tf.app.flags.DEFINE_integer('batch_size', 20,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('file_start', 0,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 110,
+tf.app.flags.DEFINE_integer('file_end', 319,
                             """End file no.""")
 tf.app.flags.DEFINE_integer('max_steps', 100000,
                             """Number of batches to run.""")

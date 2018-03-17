@@ -6,7 +6,7 @@ import tensorflow as tf
 
 from python.capsnet_1d.capsnet_1d import inference
 from python.data.hippo import hippo_input
-from python.data.hippo import affnist_input
+from python.data.affnist import affnist_input
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -24,9 +24,9 @@ tf.app.flags.DEFINE_integer('batch_size', 24,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('subject_size', 48,
                             """How many batches constitute a subject.""")
-tf.app.flags.DEFINE_integer('file_start', 1,
+tf.app.flags.DEFINE_integer('file_start', 0,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 110,
+tf.app.flags.DEFINE_integer('file_end', 319,
                             """End file no.""")
 tf.app.flags.DEFINE_string('checkpoint_dir', '/tmp/cifar10_train',
                            """Directory where to read model checkpoints.""")
@@ -38,6 +38,26 @@ tf.app.flags.DEFINE_integer('num_gpus', 2,
                             """How many GPUs to use.""")
 tf.app.flags.DEFINE_boolean('run_once', False,
                             """Whether to run eval only once.""")
+
+
+def get_batched_features(batch_size):
+    batched_features = None
+    if FLAGS.dataset == 'hippo':
+        batched_features = hippo_input.inputs('test',
+                                              FLAGS.data_dir,
+                                              batch_size,
+                                              file_start=FLAGS.file_start,
+                                              file_end=FLAGS.file_end
+                                              )
+    elif FLAGS.dataset == 'affnist':
+        batched_features = affnist_input.inputs('test',
+                                                FLAGS.data_dir,
+                                                batch_size,
+                                                file_start=FLAGS.file_start,
+                                                file_end=FLAGS.file_end
+                                                )
+
+    return batched_features
 
 
 def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op):
@@ -126,8 +146,8 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op):
             summary.ParseFromString(sess.run(summary_op))
             summary.value.add(tag='mean_dices_0', simple_value=mean_dices_0)
             summary.value.add(tag='std_dices_0', simple_value=std_dices_0)
-            summary.value.add(tag='mean_dices_1', simple_value=mean_dices_1)
-            summary.value.add(tag='std_dices_1', simple_value=std_dices_1)
+            # summary.value.add(tag='mean_dices_1', simple_value=mean_dices_1)
+            # summary.value.add(tag='std_dices_1', simple_value=std_dices_1)
             summary_writer.add_summary(summary, global_step)
         except Exception as e:  # pylint: disable=broad-except
             coord.request_stop(e)
@@ -140,12 +160,7 @@ def evaluate():
     """Eval CIFAR-10 for a number of steps."""
     with tf.Graph().as_default() as g:
         # Get images and labels for CIFAR-10.
-        batched_features = inputs('test',
-                                  FLAGS.data_dir,
-                                  FLAGS.batch_size,
-                                  file_start=FLAGS.file_start,
-                                  file_end=FLAGS.file_end
-                                  )
+        batched_features = get_batched_features(FLAGS.batch_size)
 
         images, labels = batched_features['images'], batched_features['labels']
         num_classes = batched_features['num_classes']
