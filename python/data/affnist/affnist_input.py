@@ -34,6 +34,9 @@ import sys
 import numpy as np
 import skimage.io as io
 import tensorflow as tf
+import cv2
+
+from python.utils import dice, accuracy
 
 
 def read_and_decode(filename_queue):
@@ -95,11 +98,12 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
     """
 
     file_num = file_end - file_start + 1
+    test_start_num = int(0.6 * file_num)
     file_names = None
     if split == 'train':
-        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, int(0.9 * file_num))]
+        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, test_start_num)]
     elif split == 'test':
-        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(int(0.9 * file_num), file_end + 1)]
+        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(test_start_num, file_end + 1)]
 
     with tf.name_scope('input'):
         shuffle = None
@@ -134,26 +138,44 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
                 num_threads=2,
                 capacity=1000 + 3 * batch_size)
 
-        batched_features['num_classes'] = 2
+        batched_features['num_classes'] = 3
 
         return batched_features
 
 
-def dice(target_batch, prediction_batch):
-    smooth = 1.0
-    batch_dices = []
+def batch_eval(target_batch, prediction_batch):
+    batch_dices_1 = []
+    batch_dices_2 = []
+    batch_accuracy_1 = []
+    batch_accuracy_2 = []
 
     for i in range(len(target_batch)):
-        target = target_batch[i].flatten()
-        prediction = prediction_batch[i].flatten()
-        # print(target_0[1:100])
-        # print(prediction_0[1:100])
-        intersection  = np.sum(np.multiply(target, prediction))
-        union = np.sum(target) + np.sum(prediction)
-        dice = (2.0 * intersection + smooth) / (union + smooth)
-        batch_dices.append(dice)
+        # print("label 3 number: %d" % len(np.where(target_batch[i].flatten() == 1)[0]))
+        if len(np.where(target_batch[i].flatten() == 1)[0]) > 0:
+            target_1_img = np.where(target_batch[i] == 1, 1, 0)
+            prediction_1_img = np.where(prediction_batch[i] == 1, 1, 0)
+            dice_1 = dice(target_1_img, prediction_1_img)
+            accuracy_1 = accuracy(target_1_img, prediction_1_img)
+            batch_dices_1.append(dice_1)
+            batch_accuracy_1.append(accuracy_1)
 
-    return batch_dices
+        # print("label 5 number: %d" % len(np.where(target_batch[i].flatten() == 2)[0]))
+        if len(np.where(target_batch[i].flatten() == 2)[0]) > 0:
+            target_2_img = np.where(target_batch[i] == 2, 1, 0)
+            prediction_2_img = np.where(prediction_batch[i] == 2, 1, 0)
+            dice_2 = dice(target_2_img, prediction_2_img)
+            accuracy_2 = accuracy(target_2_img, prediction_2_img)
+            batch_dices_2.append(dice_2)
+            batch_accuracy_2.append(accuracy_2)
+
+        def display_label(label):
+            label[np.where(label == 1)] = 50
+            label[np.where(label == 2)] = 255
+            return label
+        cv2.imwrite('target' + str(i) + '.png', display_label(target_batch[i]))
+        cv2.imwrite('prediction' + str(i) + '.png', display_label(prediction_batch[i]))
+
+    return batch_dices_1, batch_dices_2, batch_accuracy_1, batch_accuracy_2
 
 
 if __name__ == '__main__':

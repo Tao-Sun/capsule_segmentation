@@ -147,10 +147,10 @@ def mat_transform(inputs, output_cap_size, kernel_size, activation_length, batch
     w = tf.reshape(w, [batch_size, input_cap_size*kernel_size * kernel_size, output_cap_size*spatial_size_1*spatial_size_2,
                        activation_length, activation_length])  # (b, 32*9, 32*6*6, 8_int, 8_out)
 
-    inputs = tf.Print(inputs, [inputs])
+    # inputs = tf.Print(inputs, [inputs])
     multi = inputs * w
-    multi = tf.Print(multi, [multi])
+    # multi = tf.Print(multi, [multi])
     votes = tf.reduce_sum(multi, axis=4)  # (b, 32*9, 32*6*6, 8_out)
-    votes = tf.Print(votes, [votes])
+    # votes = tf.Print(votes, [votes])
 
     return votes  # (b, 32*9, 32*6*6, 8_out)

@@ -4,7 +4,7 @@ import time
 import numpy as np
 import tensorflow as tf
 
-from python.capsnet_1d.capsnet_1d import inference
+from python.baseline.unet import inference
 from python.data.hippo import hippo_input
 from python.data.affnist import affnist_input
 
@@ -183,7 +183,7 @@ def evaluate():
 
         # Build a Graph that computes the logits predictions from the
         # inference model.
-        class_caps_activations, remakes_flatten, label_logits = inference(image_batch, num_classes)
+        label_logits = inference(image_batch, num_classes)
         inferred_labels_op = tf.argmax(label_logits, axis=3)
 
         # Restore the moving average version of the learned variables for eval.

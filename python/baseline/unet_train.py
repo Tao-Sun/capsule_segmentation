@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 from six.moves import xrange  # pylint: disable=redefined-builtin
 
-from python.capsnet_1d.capsnet_1d import inference, loss
+from python.baseline.unet import inference, loss
 from python.data.affnist import affnist_input
 from python.data.hippo import hippo_input
 
@@ -21,11 +21,11 @@ tf.app.flags.DEFINE_string('data_dir', '/tmp/',
 tf.flags.DEFINE_string('dataset', 'affnist',
                        'The dataset to use for the experiment.'
                        'hippo, affnist.')
-tf.app.flags.DEFINE_integer('batch_size', 10,
+tf.app.flags.DEFINE_integer('batch_size', 20,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('file_start', 0,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 319,
+tf.app.flags.DEFINE_integer('file_end', 59,
                             """End file no.""")
 tf.app.flags.DEFINE_integer('max_steps', 100000,
                             """Number of batches to run.""")
@@ -68,11 +68,11 @@ def tower_loss(scope, images, labels2d, num_classes):
     """
 
     # Build inference Graph.
-    class_caps_activations, remakes_flatten, label_logits = inference(images, num_classes)
+    label_logits = inference(images, num_classes)
 
     # Build the portion of the Graph calculating the losses. Note that we will
     # assemble the total_loss using a custom function below.
-    _ = loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits, num_classes)
+    _ = loss(labels2d, label_logits, num_classes)
 
     # Assemble all of the losses for the current tower only.
     losses = tf.get_collection('losses', scope)
@@ -268,7 +268,7 @@ def default_hparams():
     return tf.contrib.training.HParams(
         decay_rate=0.96,
         decay_steps=500,
-        learning_rate=0.005,
+        learning_rate=0.001,
     )
 
 

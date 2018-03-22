@@ -96,7 +96,6 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
     """
 
     file_num = file_end - file_start + 1
-    print("file num: %d" % file_num)
     file_names = None
     if split == 'train':
         file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, int(0.9 * file_num))]
@@ -141,7 +140,7 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
         return batched_features
 
 
-def dice(target_subject, prediction_subject):
+def subject_dice(target_subject, prediction_subject):
     subject_intersection_0 = 0.0
     subject_union_0 = 0.0
     subject_intersection_1 = 0.0

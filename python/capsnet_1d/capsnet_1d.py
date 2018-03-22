@@ -9,7 +9,7 @@ from python.layers.conv_capsules import conv_capsule1d
 from python.layers.class_capsules import class_caps1d
 
 
-def inference(inputs, num_classes, routing_ites=3, remake=True, name='vector_net'):
+def inference(inputs, num_classes, routing_ites=3, remake=True, name='capsnet_1d'):
     """
 
     :param inputs:
@@ -57,26 +57,26 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='vector_net
         primary_out_capsules = 32
         primary_caps_activations = primary_caps1d(
             conv1,
-            kernel_size=9, out_capsules=primary_out_capsules, stride=1,
+            kernel_size=5, out_capsules=primary_out_capsules, stride=2,
             padding='VALID', activation_length=8, name='primary_caps'
         )  # (b, 32, 4, 20, 8)
         # primary_caps_activations = tf.check_numerics(primary_caps_activations, message="nan or inf from: primary_caps_activations")
         # primary_caps_activations = tf.Print(primary_caps_activations, [tf.constant("primary_caps_activations"), primary_caps_activations])
 
         print("\nconv capsule layer:")
-        # conv_out_capsules = 24
-        # conv_caps_activations = conv_capsule1d(
-        #     primary_caps_activations, kernel_size=3,
-        #     stride=2, routing_ites=routing_ites, in_capsules=primary_out_capsules,
-        #     out_capsules=conv_out_capsules, batch_size=batch_size, name='conv_caps'
-        # )  # (b, 32*4*20, 8)
+        conv_out_capsules = 32
+        conv_caps_activations = conv_capsule1d(
+            primary_caps_activations, kernel_size=3,
+            stride=1, routing_ites=routing_ites, in_capsules=primary_out_capsules,
+            out_capsules=conv_out_capsules, batch_size=batch_size, name='conv_caps'
+        )  # (b, 32*4*20, 8)
         # conv_caps_activations = tf.Print(conv_caps_activations, [tf.constant("conv_caps_activations"), conv_caps_activations])
 
         # (b, 32, 4, 20, 8) -> # (b, 32*4*20, 2*64)
         print("\nclass capsule layer:")
         class_caps_activations, class_coupling_coeffs = class_caps1d(
-            primary_caps_activations,
-            num_classes=num_classes, activation_length=24, routing_ites=routing_ites,
+            conv_caps_activations,
+            num_classes=num_classes, activation_length=32, routing_ites=routing_ites,
             batch_size=batch_size, name='class_capsules')
         # class_coupling_coeffs = tf.Print(class_coupling_coeffs, [tf.constant("class_coupling_coeffs"), class_coupling_coeffs])
         # class_caps_activations = tf.check_numerics(class_caps_activations, message="nan or inf from: class_caps_activations")
@@ -87,7 +87,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='vector_net
 
         print("\ndecode layers:")
         label_logits = _decode(
-            primary_caps_activations, primary_out_capsules,
+            conv_caps_activations, conv_out_capsules,
             coupling_coeffs=class_coupling_coeffs,
             num_classes=num_classes, batch_size=batch_size)
         # label_logits = tf.Print(label_logits, [tf.constant("label_logits"), label_logits[0]], summarize=100)
@@ -131,26 +131,26 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size):
     # class_labels = tf.Print(class_labels, [tf.constant("class_labels"), class_labels])
     # class_labels = tf.check_numerics(class_labels, message="nan or inf from: class_labels")
     # primary_labels = tf.reduce_sum(caps_probs_tiled, 1)
-    # deconv1 = deconv(
-    #     class_labels,
-    #     kernel=4, out_channels=num_classes, stride=2,
-    #     activation_fn=tf.nn.relu, name='deconv1'
-    # )
-    # deconv1 = tf.Print(deconv1, [tf.constant("deconv1"), deconv1])
-    # deconv2 = deconv(
-    #     class_labels,
-    #     kernel=5, out_channels=num_classes, stride=1,
-    #     activation_fn=tf.nn.relu, name='deconv2'
-    # )
-    # deconv2 = tf.Print(deconv2, [tf.constant("deconv2"), deconv2])
-    deconv3 = deconv(
+    deconv1 = deconv(
         class_labels,
-        kernel=9, out_channels=num_classes, stride=1,
-        activation_fn=tf.nn.relu, name='deconv3'
+        kernel=3, out_channels=num_classes, stride=1,
+        activation_fn=tf.nn.relu, name='deconv1'
     )
+    # deconv1 = tf.Print(deconv1, [tf.constant("deconv1"), deconv1])
+    deconv2 = deconv(
+        deconv1,
+        kernel=6, out_channels=num_classes, stride=2,
+        activation_fn=tf.nn.relu, name='deconv2'
+    )
+    # deconv2 = tf.Print(deconv2, [tf.constant("deconv2"), deconv2])
+    # deconv3 = deconv(
+    #     class_labels,
+    #     kernel=9, out_channels=num_classes, stride=1,
+    #     activation_fn=tf.nn.relu, name='deconv3'
+    # )
     # deconv3 = tf.Print(deconv3, [tf.constant("deconv3"), deconv3])
     label_logits = deconv(
-        deconv3,
+        deconv2,
         kernel=9, out_channels=num_classes, stride=1,
         activation_fn=tf.nn.relu, name='deconv4'
     )
@@ -207,13 +207,20 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
         with tf.name_scope('decode'):
             # labels2d = tf.Print(labels2d, [labels2d[0]], summarize=100, message="labels2d: ")
             # label_logits = tf.Print(label_logits, [label_logits[0]], message="label_logits: ")
-            cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels2d,
-                                                                           logits=label_logits)
+            one_hot_labels = tf.one_hot(labels2d, depth=num_classes)
+            cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=one_hot_labels,
+                                                                    logits=label_logits)
+
+            class_weights = tf.constant([[1.0, 5.0, 5.0]])
+            # deduce weights for batch samples based on their true label
+            weights = tf.reduce_sum(class_weights * one_hot_labels, axis=3)
+
+            weighted_losses = cross_entropy * weights
             print('labels2d shape: %s' % labels2d.get_shape())
             print('label_logits shape: %s' % label_logits.get_shape())
-            print('cross_entropy shape: %s' % cross_entropy.get_shape())
+            print('cross_entropy shape: %s' % weighted_losses.get_shape())
 
-            batch_decode_loss = tf.reduce_mean(cross_entropy)
+            batch_decode_loss = tf.reduce_mean(weighted_losses)
             balanced_decode_loss = 5 * batch_decode_loss
 
             tf.add_to_collection('losses', balanced_decode_loss)
