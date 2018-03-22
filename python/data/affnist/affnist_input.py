@@ -98,12 +98,14 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
     """
 
     file_num = file_end - file_start + 1
-    test_start_num = int(0.6 * file_num)
+    # test_start_num = int(1.0 * file_num)
     file_names = None
-    if split == 'train':
-        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, test_start_num)]
-    elif split == 'test':
-        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(test_start_num, file_end + 1)]
+
+    file_names = [os.path.join(data_dir, str(file_idx) + '.tfrecords') for file_idx in range(0, file_end + 1)]
+    # if split == 'train':
+    #     file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, test_start_num)]
+    # elif split == 'test':
+    #     file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(test_start_num, file_end + 1)]
 
     with tf.name_scope('input'):
         shuffle = None

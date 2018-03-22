@@ -50,7 +50,7 @@ def convert(images, labels, index):
     num_3 = 0
     num_5 = 0
     for i in range(len(images)):
-        img = images[i]
+        img = np.reshape(images[i], (28, 28))
 
         if img is not None:
             # plt.imshow(cropped_img)
@@ -83,16 +83,11 @@ def convert(images, labels, index):
 def main(unused_argv):
     data_dir, split = FLAGS.data_dir, FLAGS.split
 
-    imgs_file = os.path.join(data_dir, split + '-images-idx3-ubyte')
-    label_file = os.path.join(data_dir, split + '-labels-idx1-ubyte')
+    data = sio.loadmat(os.path.join(data_dir, split + '.mat'))
 
-    with open(label_file, 'rb') as label_f:
-        _, _ = struct.unpack(">II", label_f.read(8))
-        labels = np.fromfile(label_f, dtype=np.int8)
-
-    with open(imgs_file, 'rb') as imgs_f:
-        _, images_num, rows, cols = struct.unpack(">IIII", imgs_f.read(16))
-        images = np.fromfile(imgs_f, dtype=np.uint8).reshape(images_num, rows, cols)
+    images = data['affNISTdata'][0][0][2]
+    labels = data['affNISTdata'][0][0][5]
+    images_num = images.shape[1]
 
     print(images_num)
     print(images.shape)
@@ -103,7 +98,7 @@ def main(unused_argv):
     total_num_5 = 0
     i = 0
     while True:
-        num_3, num_5 = convert(images[start:end, :, :], labels[start:end], i)
+        num_3, num_5 = convert(np.transpose(images[:, start:end]), np.transpose(labels[:, start:end]), i)
         print("File example num: %d, %d" % (num_3, num_5))
         total_num_3 += num_3
         total_num_5 += num_5

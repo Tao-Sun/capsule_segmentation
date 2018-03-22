@@ -63,19 +63,19 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='capsnet_1d
         # primary_caps_activations = tf.check_numerics(primary_caps_activations, message="nan or inf from: primary_caps_activations")
         # primary_caps_activations = tf.Print(primary_caps_activations, [tf.constant("primary_caps_activations"), primary_caps_activations])
 
-        print("\nconv capsule layer:")
-        conv_out_capsules = 32
-        conv_caps_activations = conv_capsule1d(
-            primary_caps_activations, kernel_size=3,
-            stride=1, routing_ites=routing_ites, in_capsules=primary_out_capsules,
-            out_capsules=conv_out_capsules, batch_size=batch_size, name='conv_caps'
-        )  # (b, 32*4*20, 8)
+        # print("\nconv capsule layer:")
+        # conv_out_capsules = 32
+        # conv_caps_activations = conv_capsule1d(
+        #     primary_caps_activations, kernel_size=3,
+        #     stride=1, routing_ites=routing_ites, in_capsules=primary_out_capsules,
+        #     out_capsules=conv_out_capsules, batch_size=batch_size, name='conv_caps'
+        # )  # (b, 32*4*20, 8)
         # conv_caps_activations = tf.Print(conv_caps_activations, [tf.constant("conv_caps_activations"), conv_caps_activations])
 
         # (b, 32, 4, 20, 8) -> # (b, 32*4*20, 2*64)
         print("\nclass capsule layer:")
         class_caps_activations, class_coupling_coeffs = class_caps1d(
-            conv_caps_activations,
+            primary_caps_activations,
             num_classes=num_classes, activation_length=32, routing_ites=routing_ites,
             batch_size=batch_size, name='class_capsules')
         # class_coupling_coeffs = tf.Print(class_coupling_coeffs, [tf.constant("class_coupling_coeffs"), class_coupling_coeffs])
@@ -87,7 +87,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='capsnet_1d
 
         print("\ndecode layers:")
         label_logits = _decode(
-            conv_caps_activations, conv_out_capsules,
+            primary_caps_activations, primary_out_capsules,
             coupling_coeffs=class_coupling_coeffs,
             num_classes=num_classes, batch_size=batch_size)
         # label_logits = tf.Print(label_logits, [tf.constant("label_logits"), label_logits[0]], summarize=100)
@@ -131,14 +131,14 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size):
     # class_labels = tf.Print(class_labels, [tf.constant("class_labels"), class_labels])
     # class_labels = tf.check_numerics(class_labels, message="nan or inf from: class_labels")
     # primary_labels = tf.reduce_sum(caps_probs_tiled, 1)
-    deconv1 = deconv(
-        class_labels,
-        kernel=3, out_channels=num_classes, stride=1,
-        activation_fn=tf.nn.relu, name='deconv1'
-    )
+    # deconv1 = deconv(
+    #     class_labels,
+    #     kernel=3, out_channels=num_classes, stride=1,
+    #     activation_fn=tf.nn.relu, name='deconv1'
+    # )
     # deconv1 = tf.Print(deconv1, [tf.constant("deconv1"), deconv1])
     deconv2 = deconv(
-        deconv1,
+        class_labels,
         kernel=6, out_channels=num_classes, stride=2,
         activation_fn=tf.nn.relu, name='deconv2'
     )

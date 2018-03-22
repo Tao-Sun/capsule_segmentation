@@ -3,7 +3,7 @@ import numpy as np
 
 
 
-def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routing, p):
+def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routing, caller):
     """
 
     :param votes:
@@ -35,15 +35,15 @@ def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routi
           A tensor with same shape as input (rank 3) for output of this layer.
         """
         with tf.name_scope('norm_non_linearity'):
-            # norm = tf.norm(input_tensor, axis=2, keep_dims=True)
-            norm = tf.nn.l2_normalize(input_tensor, dim=2)  # + 1e-12
-            # norm = tf.check_numerics(norm, message="nan or inf from: norm in routing:" + p)
-            norm_squared = tf.square(norm)  #norm * norm
-            # norm_squared = tf.check_numerics(norm_squared, message="nan or inf from: norm_squared in routing:" + p)
+            norm = tf.norm(input_tensor, axis=2, keep_dims=True)
+            # norm = tf.nn.l2_normalize(input_tensor, dim=2)  # + 1e-12
+            norm = tf.check_numerics(norm, message="nan or inf from: norm in routing:" + caller)
+            norm_squared = norm * norm  # tf.square(norm)
+            norm_squared = tf.check_numerics(norm_squared, message="nan or inf from: norm_squared in routing:" + caller)
 
             # print('norm shape: %s' % norm.get_shape())
             squash = (input_tensor / norm) * (norm_squared / (1 + norm_squared))
-            # squash = tf.check_numerics(squash, message="nan or inf from: squash in routing:" + p)
+            squash = tf.check_numerics(squash, message="nan or inf from: squash in routing:" + caller)
             return squash
 
     def _body(i, logits, activations):
@@ -59,7 +59,7 @@ def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routi
         preact_trans = tf.transpose(preactivate_unrolled, r_t_shape)
         preactivate = tf.reduce_sum(preact_trans, axis=1)
 
-        activation = preactivate  #squash(preactivate)
+        activation = squash(preactivate)
         # activation = tf.check_numerics(activation, message="nan or inf from: activation in routing:" + p)
         activations = activations.write(i, activation)
 
@@ -86,6 +86,6 @@ def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routi
         swap_memory=True)
 
     activation = activations.read(num_routing - 1)
-    activation = tf.check_numerics(activation, message="nan or inf from: activation in routing:" + p)
+    activation = tf.check_numerics(activation, message="nan or inf from: activation in routing:" + caller)
 
     return activation, logits

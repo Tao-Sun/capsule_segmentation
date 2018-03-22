@@ -21,7 +21,7 @@ tf.app.flags.DEFINE_string('data_dir', '/tmp/',
 tf.flags.DEFINE_string('dataset', 'affnist',
                        'The dataset to use for the experiment.'
                        'hippo, affnist.')
-tf.app.flags.DEFINE_integer('batch_size', 10,
+tf.app.flags.DEFINE_integer('batch_size', 6,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('file_start', 0,
                             """Start file no.""")
@@ -268,7 +268,7 @@ def default_hparams():
     return tf.contrib.training.HParams(
         decay_rate=0.96,
         decay_steps=500,
-        learning_rate=0.005,
+        learning_rate=0.001,
     )
 
 

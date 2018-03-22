@@ -48,7 +48,7 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
                 num_dims=4,
                 input_dim=in_capsules * in_height * in_width,
                 num_routing=routing_ites,
-                p=" class capsules")
+                caller=" class capsules")
             # activations = tf.Print(activations, [tf.constant("class_caps_activations"), activations])
             activations = tf.check_numerics(activations, message="nan or inf from: activations in class capsules")
             coupling_coeffs = tf.check_numerics(coupling_coeffs, message="nan or inf from: coupling_coeffs in class capsules")

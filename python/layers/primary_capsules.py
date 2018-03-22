@@ -39,7 +39,7 @@ def primary_caps1d(inputs, kernel_size, out_capsules, stride, padding, activatio
                 num_dims=6,
                 input_dim=1,
                 num_routing=1,
-                p=" primary")
+                caller=" primary")
             activations_transposed = tf.transpose(activations, [0, 1, 3, 4, 2])  # (b, 32, 4, 20, 8)
 
     return activations_transposed

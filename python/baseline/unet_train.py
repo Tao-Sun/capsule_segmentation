@@ -25,7 +25,7 @@ tf.app.flags.DEFINE_integer('batch_size', 20,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('file_start', 0,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 59,
+tf.app.flags.DEFINE_integer('file_end', 49,
                             """End file no.""")
 tf.app.flags.DEFINE_integer('max_steps', 100000,
                             """Number of batches to run.""")
