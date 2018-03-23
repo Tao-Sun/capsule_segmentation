@@ -89,7 +89,7 @@ def loss(labels2d, label_logits, num_classes):
         cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=one_hot_labels,
                                                                 logits=label_logits)
 
-        class_weights = tf.constant([[1.0, 5.0, 5.0]])
+        class_weights = tf.constant([1.0] + [5.0] * (num_classes - 1))
         # deduce weights for batch samples based on their true label
         weights = tf.reduce_sum(class_weights * one_hot_labels, axis=3)
 

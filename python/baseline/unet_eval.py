@@ -60,7 +60,7 @@ def get_batched_features(batch_size):
     return batched_features
 
 
-def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op):
+def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op, num_classes):
     """Run Eval once.
 
     Args:
@@ -99,10 +99,8 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op):
             num_iter = int(math.ceil(FLAGS.num_examples / FLAGS.batch_size))
             total_sample_count = num_iter * FLAGS.batch_size
 
-            total_dices_0 = []
-            total_dices_1 = []
-            total_accu_0 = []
-            total_accu_1 = []
+            total_dices = [[]] * (num_classes - 1)
+            total_accuracies = [[]] * (num_classes - 1)
 
             if FLAGS.dataset == "hippo":
                 assert(FLAGS.subject_size % FLAGS.batch_size == 0)
@@ -129,36 +127,35 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op):
 
                         subject_dice_0, subject_dice_1 = hippo_input.subject_dice(target_subject, prediction_subject)
                         print("subject_dices: %f, %f" % (subject_dice_0, subject_dice_1))
-                        total_dices_0.append(subject_dice_0)
-                        total_dices_1.append(subject_dice_1)
+                        # total_dices_0.append(subject_dice_0)
+                        # total_dices_1.append(subject_dice_1)
 
                         hippo_input.save_nii(target_subject, prediction_subject, FLAGS.data_dir, group)
                 elif FLAGS.dataset == 'affnist':
-                    batch_dice_0, batch_dice_1, batch_accu_0, batch_accu_1 = affnist_input.batch_eval(target_batch, prediction_batch)
-                    # print(str(batch_dice_0))
-                    # print(batch_dice_1)
+                    batch_dices, batch_accuracies = affnist_input.batch_eval(target_batch, prediction_batch,
+                                                                             num_classes)
+                    # print(batch_accuracies)
+                    # print(batch_dices)
                     # print
-                    total_dices_0 = np.concatenate((total_dices_0, batch_dice_0))
-                    total_dices_1 = np.concatenate((total_dices_1, batch_dice_1))
-                    total_accu_0 = np.concatenate((total_accu_0, batch_accu_0))
-                    total_accu_1 = np.concatenate((total_accu_1, batch_accu_1))
+                    for i in range(num_classes - 1):
+                        total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
+                        total_accuracies[i] = np.concatenate((total_accuracies[i], batch_accuracies[i]))
 
                 step += 1
 
-            mean_dices_0, std_dices_0 = np.mean(total_dices_0), np.std(total_dices_0)
-            mean_dices_1, std_dices_1 = np.mean(total_dices_1), np.std(total_dices_1)
-            mean_accu_0 = np.mean(total_accu_0)
-            mean_accu_1 = np.mean(total_accu_1)
-            print('\nmean dices:  %f, %f' % (mean_dices_0, mean_dices_1))
-            print('dices std: %f, %f' % (std_dices_0, std_dices_1))
-            print('\nmean accuracies:  %f, %f' % (mean_accu_0, mean_accu_1))
+            for i in range(num_classes - 1):
+                mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
+                mean_accu = np.mean(total_accuracies[i])
+                print('\nmean dices:  %f' % mean_dices)
+                print('dices std: %f' % std_dices)
+                print('\nmean accuracies:  %f' % mean_accu)
 
             summary = tf.Summary()
             summary.ParseFromString(sess.run(summary_op))
-            summary.value.add(tag='mean_dices_0', simple_value=mean_dices_0)
-            summary.value.add(tag='std_dices_0', simple_value=std_dices_0)
-            summary.value.add(tag='mean_dices_1', simple_value=mean_dices_1)
-            summary.value.add(tag='std_dices_1', simple_value=std_dices_1)
+            # summary.value.add(tag='mean_dices_0', simple_value=mean_dices_0)
+            # summary.value.add(tag='std_dices_0', simple_value=std_dices_0)
+            # summary.value.add(tag='mean_dices_1', simple_value=mean_dices_1)
+            # summary.value.add(tag='std_dices_1', simple_value=std_dices_1)
             summary_writer.add_summary(summary, global_step)
         except Exception as e:  # pylint: disable=broad-except
             coord.request_stop(e)
@@ -173,7 +170,7 @@ def evaluate():
         # Get images and labels for CIFAR-10.
         batched_features = get_batched_features(FLAGS.batch_size)
 
-        images, labels = batched_features['images'], batched_features['labels']
+        images, labels = batched_features['images'], batched_features['pixel_labels']
         num_classes = batched_features['num_classes']
 
         batch_queue = tf.contrib.slim.prefetch_queue.prefetch_queue(
@@ -198,7 +195,7 @@ def evaluate():
         summary_writer = tf.summary.FileWriter(FLAGS.summary_dir, g)
 
         while True:
-            eval_once(summary_writer, inferred_labels_op, labels_op, summary_op)
+            eval_once(summary_writer, inferred_labels_op, labels_op, summary_op, num_classes)
             if FLAGS.run_once:
                 break
             time.sleep(FLAGS.eval_interval_secs)

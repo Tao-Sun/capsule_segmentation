@@ -47,8 +47,7 @@ def convert(images, labels, index):
     print('Writing: %s, images num: %d' % (filename, len(images)))
     writer = tf.python_io.TFRecordWriter(filename)
 
-    num_3 = 0
-    num_5 = 0
+    digit_nums = np.zeros(4)
     for i in range(len(images)):
         img = np.reshape(images[i], (28, 28))
 
@@ -59,25 +58,35 @@ def convert(images, labels, index):
             image = np.array(img, dtype=np.uint8)
             label = int(labels[i])
 
-            if label in Set([3, 5]):
+            if label in Set([2, 7, 8, 0]):
                 image_raw = image.tostring()
-                label_raw = np.array(np.where(image > 0, 1 if label == 3 else 2, 0), dtype=np.uint8).tostring()
+
+                if label == 2:
+                    label_class = 1
+                    digit_nums[0] += 1
+                elif label == 7:
+                    label_class = 2
+                    digit_nums[1] += 1
+                elif label == 8:
+                    label_class = 3
+                    digit_nums[2] += 1
+                elif label == 0:
+                    label_class = 4
+                    digit_nums[3] += 1
+                label_raw = np.array(np.where(image > 0, label_class, 0), dtype=np.uint8).tostring()
+
                 features = tf.train.Features(feature={
                     'height': _int64_feature(image.shape[0]),
                     'width': _int64_feature(image.shape[1]),
-                    # 'name': _bytes_feature(name),
+                    'label_class': _int64_feature(label_class),
                     'image_raw': _bytes_feature(image_raw),
                     'label_raw': _bytes_feature(label_raw)})
                 example = tf.train.Example(features=features)
                 writer.write(example.SerializeToString())
 
-                if label == 3:
-                    num_3 += 1
-                else:
-                    num_5 += 1
     writer.close()
 
-    return num_3, num_5
+    return digit_nums
 
 
 def main(unused_argv):
@@ -94,21 +103,21 @@ def main(unused_argv):
     print(labels.shape)
     start = 0
     end = min(FLAGS.file_size, images_num)
-    total_num_3 = 0
-    total_num_5 = 0
     i = 0
+    total_nums = np.zeros(4)
     while True:
-        num_3, num_5 = convert(np.transpose(images[:, start:end]), np.transpose(labels[:, start:end]), i)
-        print("File example num: %d, %d" % (num_3, num_5))
-        total_num_3 += num_3
-        total_num_5 += num_5
+        digit_nums = convert(np.transpose(images[:, start:end]), np.transpose(labels[:, start:end]), i)
+        print("File example nums: %s" % digit_nums)
+        total_nums = total_nums + digit_nums
+
         if end < images_num:
             start = end
             end = min(end + FLAGS.file_size, images_num)
             i += 1
         else:
             break
-    print("Total example num: %d, %d" % (total_num_3, total_num_5))
+
+    print("Total example nums: %s" % total_nums)
 
 
 if __name__ == '__main__':

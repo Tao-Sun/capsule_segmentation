@@ -55,7 +55,7 @@ def get_batched_features(batch_size):
     return batched_features
 
 
-def tower_loss(scope, images, labels2d, num_classes):
+def tower_loss(scope, images, labels2d, label_class, num_classes):
     """Calculate the total loss on a single tower running the CIFAR model.
 
     Args:
@@ -72,7 +72,7 @@ def tower_loss(scope, images, labels2d, num_classes):
 
     # Build the portion of the Graph calculating the losses. Note that we will
     # assemble the total_loss using a custom function below.
-    _ = loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits, num_classes)
+    _ = loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits, label_class, num_classes)
 
     # Assemble all of the losses for the current tower only.
     losses = tf.get_collection('losses', scope)
@@ -151,7 +151,8 @@ def train(hparams):
                         batched_features = get_batched_features(batch_size)
 
                         image_batch = batched_features['images']
-                        label_batch = batched_features['labels']
+                        pixel_labels_batch = batched_features['pixel_labels']
+                        label_class_batch = batched_features['label_class']
                         num_classes = batched_features['num_classes']
 
                         print('shape of image batch:' + str(image_batch.get_shape()))
@@ -159,7 +160,7 @@ def train(hparams):
                         # Calculate the loss for one tower of the CIFAR model. This function
                         # constructs the entire CIFAR model but shares the variables across
                         # all towers.
-                        loss = tower_loss(scope, image_batch, label_batch, num_classes)
+                        loss = tower_loss(scope, image_batch, pixel_labels_batch, label_class_batch, num_classes)
 
                         # Reuse variables for the next tower.
                         tf.get_variable_scope().reuse_variables()

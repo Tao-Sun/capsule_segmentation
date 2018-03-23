@@ -159,7 +159,28 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size):
     return label_logits
 
 
-def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits, num_classes):
+def _margin_loss(labels, raw_logits, margin=0.4, downweight=0.5):
+    """Penalizes deviations from margin for each logit.
+    Each wrong logit costs its distance to margin. For negative logits margin is
+    0.1 and for positives it is 0.9. First subtract 0.5 from all logits. Now
+    margin is 0.4 from each side.
+    Args:
+      labels: tensor, one hot encoding of ground truth.
+      raw_logits: tensor, model predictions in range [0, 1]
+      margin: scalar, the margin after subtracting 0.5 from raw_logits.
+      downweight: scalar, the factor for negative cost.
+    Returns:
+      A tensor with cost for each data point of shape [batch_size].
+    """
+    logits = raw_logits - 0.5
+    positive_cost = labels * tf.cast(tf.less(logits, margin),
+                                     tf.float32) * tf.pow(logits - margin, 2)
+    negative_cost = (1 - labels) * tf.cast(
+        tf.greater(logits, -margin), tf.float32) * tf.pow(logits + margin, 2)
+    return 0.5 * positive_cost + downweight * 0.5 * negative_cost
+
+
+def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits, label_class, num_classes):
     """
 
     :param images:
@@ -183,26 +204,15 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
         #     tf.add_to_collection('losses', balanced_remake_loss)
         #     tf.summary.scalar('remake_loss', balanced_remake_loss)
 
-        # with tf.name_scope('margin'):
-        #     labels_shape = labels2d.get_shape()
-        #     num_pixels = labels_shape[1].value * labels_shape[2].value
-        #
-        #     class_caps_norm = tf.norm(class_caps_activations, axis=-1)  # (b, num_classes)
-        #
-        #     class_numbers = []
-        #     for i in range(num_classes):
-        #         class_elements = tf.cast(tf.equal(labels2d, i), tf.int32)  # (b, h, w)
-        #         class_number = tf.reduce_sum(class_elements, [1, 2])  # (b)
-        #         class_numbers.append(class_number)
-        #
-        #     class_probs = tf.divide(tf.stack(class_numbers, axis=1), num_pixels)  # (b, num_classes)
-        #     margin_loss = tf.pow(tf.cast(class_probs, tf.float32) - class_caps_norm, 2)
-        #
-        #     batch_margin_loss = tf.reduce_mean(margin_loss)
-        #     balanced_margin_loss = 10 * batch_margin_loss
-        #
-        #     tf.add_to_collection('losses', balanced_margin_loss)
-        #     tf.summary.scalar('margin_loss', balanced_margin_loss)
+        with tf.name_scope('margin'):
+            one_hot_label_class = tf.one_hot(label_class, depth=num_classes)
+            class_caps_logits = tf.norm(class_caps_activations, axis=-1)
+            margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
+
+            batch_margin_loss = tf.reduce_mean(margin_loss)
+            tf.add_to_collection('losses', batch_margin_loss)
+            tf.summary.scalar('margin_loss', batch_margin_loss)
+
 
         with tf.name_scope('decode'):
             # labels2d = tf.Print(labels2d, [labels2d[0]], summarize=100, message="labels2d: ")
@@ -211,7 +221,7 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=one_hot_labels,
                                                                     logits=label_logits)
 
-            class_weights = tf.constant([[1.0, 5.0, 5.0]])
+            class_weights = tf.constant([1.0] + [5.0]*(num_classes-1))
             # deduce weights for batch samples based on their true label
             weights = tf.reduce_sum(class_weights * one_hot_labels, axis=3)
 
@@ -225,5 +235,3 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
 
             tf.add_to_collection('losses', balanced_decode_loss)
             tf.summary.scalar('decode_loss', balanced_decode_loss)
-
-

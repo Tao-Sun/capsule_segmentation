@@ -48,6 +48,7 @@ def read_and_decode(filename_queue):
         features={
             'height': tf.FixedLenFeature([], tf.int64),
             'width': tf.FixedLenFeature([], tf.int64),
+            'label_class': tf.FixedLenFeature([], tf.int64),
             'image_raw': tf.FixedLenFeature([], tf.string),
             'label_raw': tf.FixedLenFeature([], tf.string),
         })
@@ -55,16 +56,17 @@ def read_and_decode(filename_queue):
     # Convert from a scalar string tensor (whose single string has
     # length mnist.IMAGE_PIXELS) to a uint8 tensor with shape
     # [mnist.IMAGE_PIXELS].
-    height = tf.cast(features['height'], tf.int32) # tf.to_int64(features['height'])
-    width = tf.cast(features['width'], tf.int32) #tf.to_int64(features['width'])
+    height = tf.cast(features['height'], tf.int32)  # tf.to_int64(features['height'])
+    width = tf.cast(features['width'], tf.int32)  #tf.to_int64(features['width'])
+    label_class = tf.cast(features['label_class'], tf.int32)
 
     image = tf.decode_raw(features['image_raw'], tf.uint8)
     image = tf.reshape(image, [1, height, width])
     image.set_shape([1, 28, 28])
 
-    label = tf.decode_raw(features['label_raw'], tf.uint8)
-    label = tf.reshape(label, [height, width])
-    label.set_shape([28, 28])
+    pixel_labels = tf.decode_raw(features['label_raw'], tf.uint8)
+    pixel_labels = tf.reshape(pixel_labels, [height, width])
+    pixel_labels.set_shape([28, 28])
 
     # OPTIONAL: Could reshape into a 28x28 image and apply distortions
     # here.  Since we are not applying any distortions in this
@@ -73,9 +75,9 @@ def read_and_decode(filename_queue):
 
     # Convert from [0, 255] -> [-0.5, 0.5] floats.
     image = tf.cast(image, tf.float32) * (1. / 255)
-    label = tf.cast(label, tf.int32)
+    pixel_labels = tf.cast(pixel_labels, tf.int32)
 
-    return image, label
+    return image, pixel_labels, label_class
 
 
 def inputs(split, data_dir, batch_size, file_start, file_end):
@@ -117,11 +119,12 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
 
         # Even when reading in multiple threads, share the filename
         # queue.
-        image, label = read_and_decode(filename_queue)
+        image, pixel_labels, label_class = read_and_decode(filename_queue)
 
         features = {
             'images': image,
-            'labels': label,
+            'pixel_labels': pixel_labels,
+            'label_class': label_class
         }
 
         batched_features = None
@@ -140,44 +143,39 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
                 num_threads=2,
                 capacity=1000 + 3 * batch_size)
 
-        batched_features['num_classes'] = 3
+        batched_features['num_classes'] = 5
 
         return batched_features
 
 
-def batch_eval(target_batch, prediction_batch):
-    batch_dices_1 = []
-    batch_dices_2 = []
-    batch_accuracy_1 = []
-    batch_accuracy_2 = []
+def batch_eval(target_batch, prediction_batch, num_classes):
+    batch_dices = []
+    batch_accuracies = []
+    for i in range(num_classes - 1):
+        batch_dices.append([])
+        batch_accuracies.append([])
 
     for i in range(len(target_batch)):
-        # print("label 3 number: %d" % len(np.where(target_batch[i].flatten() == 1)[0]))
-        if len(np.where(target_batch[i].flatten() == 1)[0]) > 0:
-            target_1_img = np.where(target_batch[i] == 1, 1, 0)
-            prediction_1_img = np.where(prediction_batch[i] == 1, 1, 0)
-            dice_1 = dice(target_1_img, prediction_1_img)
-            accuracy_1 = accuracy(target_1_img, prediction_1_img)
-            batch_dices_1.append(dice_1)
-            batch_accuracy_1.append(accuracy_1)
+        for j in range(1, num_classes):
+            # print("label 3 number: %d" % len(np.where(target_batch[i].flatten() == 1)[0]))
+            if len(np.where(target_batch[i].flatten() == j)[0]) > 0:
+                target_img = np.where(target_batch[i] == j, 1, 0)
+                prediction_img = np.where(prediction_batch[i] == j, 1, 0)
+                dice_val = dice(target_img, prediction_img)
+                accu_val = accuracy(target_img, prediction_img)
 
-        # print("label 5 number: %d" % len(np.where(target_batch[i].flatten() == 2)[0]))
-        if len(np.where(target_batch[i].flatten() == 2)[0]) > 0:
-            target_2_img = np.where(target_batch[i] == 2, 1, 0)
-            prediction_2_img = np.where(prediction_batch[i] == 2, 1, 0)
-            dice_2 = dice(target_2_img, prediction_2_img)
-            accuracy_2 = accuracy(target_2_img, prediction_2_img)
-            batch_dices_2.append(dice_2)
-            batch_accuracy_2.append(accuracy_2)
+                batch_dices[j-1].append(dice_val)
+                batch_accuracies[j-1].append(accu_val)
 
         def display_label(label):
-            label[np.where(label == 1)] = 50
-            label[np.where(label == 2)] = 255
+            for j in range(1, num_classes):
+                label[np.where(label == j)] = j * 255.0 / (num_classes - 1)
+
             return label
         cv2.imwrite('target' + str(i) + '.png', display_label(target_batch[i]))
         cv2.imwrite('prediction' + str(i) + '.png', display_label(prediction_batch[i]))
 
-    return batch_dices_1, batch_dices_2, batch_accuracy_1, batch_accuracy_2
+    return batch_dices, batch_accuracies
 
 
 if __name__ == '__main__':

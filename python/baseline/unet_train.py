@@ -151,7 +151,7 @@ def train(hparams):
                         batched_features = get_batched_features(batch_size)
 
                         image_batch = batched_features['images']
-                        label_batch = batched_features['labels']
+                        label_batch = batched_features['pixel_labels']
                         num_classes = batched_features['num_classes']
 
                         print('shape of image batch:' + str(image_batch.get_shape()))
