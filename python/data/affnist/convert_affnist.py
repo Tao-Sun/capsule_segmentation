@@ -88,21 +88,21 @@ def convert(images, labels, index):
             image = np.array(cropped_img, dtype=np.uint8)
             label = int(labels[i][0])
 
-            if label in Set([2, 7, 8, 0]):
+            if label in Set([0, 8]):
                 image_raw = image.tostring()
 
-                if label == 2:
+                if label == 0:
                     label_class = 1
                     digit_nums[0] += 1
-                elif label == 7:
+                elif label == 8:
                     label_class = 2
                     digit_nums[1] += 1
-                elif label == 8:
-                    label_class = 3
-                    digit_nums[2] += 1
-                elif label == 0:
-                    label_class = 4
-                    digit_nums[3] += 1
+                # elif label == 8:
+                #     label_class = 3
+                #     digit_nums[2] += 1
+                # elif label == 0:
+                #     label_class = 4
+                #     digit_nums[3] += 1
                 label_raw = np.array(np.where(image > 0, label_class, 0), dtype=np.uint8).tostring()
 
                 features = tf.train.Features(feature={

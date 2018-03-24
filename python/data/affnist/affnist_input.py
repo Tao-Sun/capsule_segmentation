@@ -100,14 +100,15 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
     """
 
     file_num = file_end - file_start + 1
-    # test_start_num = int(1.0 * file_num)
+    test_start_num = int(0.9 * file_num)
     file_names = None
 
-    file_names = [os.path.join(data_dir, str(file_idx) + '.tfrecords') for file_idx in range(0, file_end + 1)]
-    # if split == 'train':
-    #     file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, test_start_num)]
-    # elif split == 'test':
-    #     file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(test_start_num, file_end + 1)]
+    # file_names = [os.path.join(data_dir, str(file_idx) + '.tfrecords') for file_idx in range(0, file_end + 1)]
+    if split == 'train':
+        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, test_start_num)]
+    elif split == 'test':
+        print('test start num: %d' % test_start_num)
+        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(test_start_num, file_end + 1)]
 
     with tf.name_scope('input'):
         shuffle = None
@@ -143,7 +144,7 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
                 num_threads=2,
                 capacity=1000 + 3 * batch_size)
 
-        batched_features['num_classes'] = 5
+        batched_features['num_classes'] = 3
 
         return batched_features
 

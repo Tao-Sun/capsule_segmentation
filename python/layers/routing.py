@@ -35,14 +35,23 @@ def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routi
           A tensor with same shape as input (rank 3) for output of this layer.
         """
         with tf.name_scope('norm_non_linearity'):
+            input_tensor = tf.check_numerics(input_tensor, message="nan or inf from: norm in routing:" + caller)
+            # input_tensor = tf.Print(input_tensor, [input_tensor], summarize=20, message="input_tensor")
+            print("input_tensor shape: %s" % input_tensor.get_shape())
+
             norm = tf.norm(input_tensor, axis=2, keep_dims=True)
-            # norm = tf.nn.l2_normalize(input_tensor, dim=2)  # + 1e-12
+            print("norm shape: %s" % norm.get_shape())
             norm = tf.check_numerics(norm, message="nan or inf from: norm in routing:" + caller)
+            # norm = tf.Print(norm, [norm], summarize=20, message="norm")
             norm_squared = norm * norm  # tf.square(norm)
             norm_squared = tf.check_numerics(norm_squared, message="nan or inf from: norm_squared in routing:" + caller)
+            # norm_squared = tf.Print(norm_squared, [norm_squared], summarize=20, message="norm_squared")
 
+            normalized_input = tf.nn.l2_normalize(input_tensor, dim=2)
+            normalized_input = tf.check_numerics(normalized_input, message="nan or inf from: normalized_input in routing:" + caller)
+            # normalized_input = tf.Print(norm, [normalized_input], summarize=20, message="norm")
             # print('norm shape: %s' % norm.get_shape())
-            squash = (input_tensor / norm) * (norm_squared / (1 + norm_squared))
+            squash = normalized_input * (norm_squared / (1 + norm_squared))
             squash = tf.check_numerics(squash, message="nan or inf from: squash in routing:" + caller)
             return squash
 

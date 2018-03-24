@@ -58,21 +58,25 @@ def convert(images, labels, index):
             image = np.array(img, dtype=np.uint8)
             label = int(labels[i])
 
-            if label in Set([2, 7, 8, 0]):
-                image_raw = image.tostring()
+            if label in Set([0, 8]):
 
-                if label == 2:
+
+                if label == 0:
                     label_class = 1
                     digit_nums[0] += 1
-                elif label == 7:
+                elif label == 8:
                     label_class = 2
                     digit_nums[1] += 1
-                elif label == 8:
-                    label_class = 3
-                    digit_nums[2] += 1
-                elif label == 0:
-                    label_class = 4
-                    digit_nums[3] += 1
+                    if index > 44:
+                        image[12:16, :] = 0
+                # elif label == 8:
+                #     label_class = 3
+                #     digit_nums[2] += 1
+                # elif label == 0:
+                #     label_class = 4
+                #     digit_nums[3] += 1
+
+                image_raw = image.tostring()
                 label_raw = np.array(np.where(image > 0, label_class, 0), dtype=np.uint8).tostring()
 
                 features = tf.train.Features(feature={
@@ -95,7 +99,7 @@ def main(unused_argv):
     data = sio.loadmat(os.path.join(data_dir, split + '.mat'))
 
     images = data['affNISTdata'][0][0][2]
-    labels = data['affNISTdata'][0][0][5]
+    labels = data['affNISTdata'][0][0][5][0]
     images_num = images.shape[1]
 
     print(images_num)
@@ -106,7 +110,7 @@ def main(unused_argv):
     i = 0
     total_nums = np.zeros(4)
     while True:
-        digit_nums = convert(np.transpose(images[:, start:end]), np.transpose(labels[:, start:end]), i)
+        digit_nums = convert(np.transpose(images[:, start:end]), np.transpose(labels[start:end]), i)
         print("File example nums: %s" % digit_nums)
         total_nums = total_nums + digit_nums
 

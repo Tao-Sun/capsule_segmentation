@@ -76,7 +76,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='capsnet_1d
         print("\nclass capsule layer:")
         class_caps_activations, class_coupling_coeffs = class_caps1d(
             primary_caps_activations,
-            num_classes=num_classes, activation_length=32, routing_ites=routing_ites,
+            num_classes=num_classes, activation_length=16, routing_ites=routing_ites,
             batch_size=batch_size, name='class_capsules')
         # class_coupling_coeffs = tf.Print(class_coupling_coeffs, [tf.constant("class_coupling_coeffs"), class_coupling_coeffs])
         # class_caps_activations = tf.check_numerics(class_caps_activations, message="nan or inf from: class_caps_activations")
@@ -210,6 +210,7 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
 
             batch_margin_loss = tf.reduce_mean(margin_loss)
+            # batch_margin_loss = tf.Print(batch_margin_loss, [batch_margin_loss])
             tf.add_to_collection('losses', batch_margin_loss)
             tf.summary.scalar('margin_loss', batch_margin_loss)
 

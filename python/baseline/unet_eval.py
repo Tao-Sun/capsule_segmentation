@@ -148,7 +148,7 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op, num_cla
                 mean_accu = np.mean(total_accuracies[i])
                 print('\nmean dices:  %f' % mean_dices)
                 print('dices std: %f' % std_dices)
-                print('\nmean accuracies:  %f' % mean_accu)
+                # print('\nmean accuracies:  %f' % mean_accu)
 
             summary = tf.Summary()
             summary.ParseFromString(sess.run(summary_op))
