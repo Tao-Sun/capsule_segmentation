@@ -58,13 +58,13 @@ def convert(images, labels, index):
             image = np.array(img, dtype=np.uint8)
             label = int(labels[i])
 
-            if label in Set([0, 8]):
+            if label in Set([2, 7]):
 
 
-                if label == 0:
+                if label == 2:
                     label_class = 1
                     digit_nums[0] += 1
-                elif label == 8:
+                elif label == 7:
                     label_class = 2
                     digit_nums[1] += 1
                     if index > 44:
