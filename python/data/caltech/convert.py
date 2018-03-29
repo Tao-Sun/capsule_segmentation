@@ -19,7 +19,8 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
-import os, sys
+import os
+import sys
 import random
 
 import cv2
@@ -97,7 +98,7 @@ def gen_img(file_path, height, width):
         canvas.draw()
         return figure
 
-    def gen_img(matplot_fig):
+    def gen_gray_img(matplot_fig):
         w, h = matplot_fig.canvas.get_width_height()
         buf = np.fromstring(matplot_fig.canvas.tostring_argb(), dtype=np.uint8)
         buf.shape = (w, h, 4)
@@ -109,12 +110,11 @@ def gen_img(file_path, height, width):
 
     patch = gen_patch()
     fig = gen_matplot_fig(patch)
-    img = gen_img(fig)
-
+    img = gen_gray_img(fig)
     return img
 
 
-def gen_merged_img(file_path_1, file_path_2, height, width):
+def merge_images(file_path_1, file_path_2, height, width):
     img1 = gen_img(file_path_1, height, width)
     framed_img_1 = frame(img1)
     h1, w1 = framed_img_1.shape
@@ -123,33 +123,42 @@ def gen_merged_img(file_path_1, file_path_2, height, width):
     framed_img_2 = frame(img2)
     h2, w2 = framed_img_2.shape
 
-    framed_img_size = (min(h1 + h2 - 1, height), min(w1 + w2 - 1, width))
+    overlap_shape = (min(h1 + h2 - 1, height), min(w1 + w2 - 1, width))
 
-    h_coeffs = [random.uniform(0, 0.3), random.uniform(0.8, 1.0)]
-    random.shuffle(h_coeffs)
-    w_coeffs = [random.uniform(0, 0.1), random.uniform(0.9, 1.0)]
-    random.shuffle(w_coeffs)
-    img1, label1 = pad(framed_img_1, framed_img_size[0], framed_img_size[1],
-                       h_coeffs[0], w_coeffs[0], 1)
-    img2, label2 = pad(framed_img_2, framed_img_size[0], framed_img_size[1],
-                       h_coeffs[1], w_coeffs[1], 2)
-    merged_framed_img = np.maximum.reduce([img1 * 0.4, img2])
-    merged_framed_label = label1 + label2  # np.maximum.reduce([label1, label2])
+    overlap_h_coeffs = [random.uniform(0, 0.3), random.uniform(0.8, 1.0)]
+    random.shuffle(overlap_h_coeffs)
+    overlap_w_coeffs = [random.uniform(0, 0.1), random.uniform(0.9, 1.0)]
+    random.shuffle(overlap_w_coeffs)
+    overlap_img1, overlap_label1 = pad(framed_img_1, overlap_shape[0],
+                                       overlap_shape[1], overlap_h_coeffs[0],
+                                       overlap_w_coeffs[0], 1)
+    overlap_img2, overlap_label2 = pad(framed_img_2, overlap_shape[0],
+                                       overlap_shape[1], overlap_h_coeffs[1],
+                                       overlap_w_coeffs[1], 2)
+
 
     coeff1, coeff2 = random.uniform(0, 1.0), random.uniform(0, 1.0)
-    merged_img = pad(merged_framed_img, height, width, coeff1, coeff2)
-    merged_label = pad(merged_framed_label, height, width, coeff1, coeff2)
+    merged_img_1 = pad(overlap_img1, height, width, coeff1, coeff2).astype(np.uint8)
+    merged_label_1 = pad(overlap_label1, height, width, coeff1, coeff2).astype(np.uint8)
+    merged_img_2 = pad(overlap_img2, height, width, coeff1, coeff2).astype(np.uint8)
+    merged_label_2 = pad(overlap_label2, height, width, coeff1, coeff2).astype(np.uint8)
 
-    return merged_img, merged_label
+    shuffle = [0, 1]
+    random.shuffle(shuffle)
 
+    merged_imgs = [merged_img_1, merged_img_2]
+    shuffled_imgs = [merged_imgs[shuffle[0]], merged_imgs[shuffle[1]]]
+    merged_img = np.maximum.reduce([shuffled_imgs[0] * 0.4, shuffled_imgs[1]]).astype(np.uint8)
 
-# input_folder1 = './data/caltech101/Annotations/car_side'
-# input_folder2 = './data/caltech101/Annotations/Motorbikes_16'
-# output_folder = './data/caltech101'
-#
-# height, width = 28, 28
+    merged_labels = [merged_label_1, merged_label_2]
+    shuffled_labels = [merged_labels[shuffle[0]], merged_labels[shuffle[1]]]
+    merged_label = np.maximum.reduce([shuffled_labels[0] * 0.4, shuffled_labels[1]])
+    if shuffle[0] == 0:
+        merged_label = np.where(merged_label == 0.4, 1, merged_label).astype(np.uint8)
+    else:
+        merged_label = np.where(merged_label == 0.8, 2, merged_label).astype(np.uint8)
 
-
+    return merged_img, merged_label, merged_img_1, merged_label_1, merged_img_2, merged_label_2
 
 
 def _int64_feature(value):
@@ -160,7 +169,7 @@ def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
-def convert(images, labels, index):
+def convert(images, labels, images_1, labels_1, images_2, labels_2, index):
     """Converts a dataset to tfrecords."""
     filename = os.path.join(FLAGS.dest, str(index) + '.tfrecords')
     print('Writing: %s, images num: %d' % (filename, len(images)))
@@ -169,12 +178,23 @@ def convert(images, labels, index):
     for i in range(len(images)):
         image_raw = images[i].tostring()
         label_raw = labels[i].tostring()
+        image_raw_1 = images_1[i].tostring()
+        label_raw_1 = labels_1[i].tostring()
+        image_raw_2 = images_2[i].tostring()
+        label_raw_2 = labels_2[i].tostring()
 
         features = tf.train.Features(feature={
             'height': _int64_feature(images[i].shape[0]),
             'width': _int64_feature(images[i].shape[1]),
+            'depth': _int64_feature(1),
+            'label_1': _int64_feature(1),
+            'label_2': _int64_feature(2),
             'image_raw': _bytes_feature(image_raw),
-            'label_raw': _bytes_feature(label_raw)})
+            'label_raw': _bytes_feature(label_raw),
+            'image_raw_1': _bytes_feature(image_raw_1),
+            'label_raw_1': _bytes_feature(label_raw_1),
+            'image_raw_2': _bytes_feature(image_raw_2),
+            'label_raw_2': _bytes_feature(label_raw_2)})
         example = tf.train.Example(features=features)
         writer.write(example.SerializeToString())
 
@@ -191,19 +211,21 @@ def main(unused_argv):
     end = min(FLAGS.file_size, images_num + 1)
     fidx = 0
     while True:
-        images = []
-        labels = []
+        images, labels = [], []
+        images_1, labels_1 = [], []
+        images_2, labels_2 = [], []
         for i in range(start, end):
             file_path_1 = os.path.join(input_folder1, 'annotation_' + str(i).zfill(4) + '.mat')
             file_path_2 = os.path.join(input_folder2, 'annotation_' + str(i).zfill(4) + '.mat')
-            merged_img, merged_label = gen_merged_img(file_path_1, file_path_2, height, width)
-            cv2.imwrite(os.path.join(FLAGS.dest, str(i) + '.png'), merged_img)
-            cv2.imwrite(os.path.join(FLAGS.dest, str(i) + '_l.png'), merged_label * 100)
+            img, label, img_1, label_1, img_2, label_2 = merge_images(file_path_1, file_path_2, height, width)
+            # cv2.imwrite(os.path.join(FLAGS.dest, str(i) + '.png'), img)
+            # cv2.imwrite(os.path.join(FLAGS.dest, str(i) + '_l.png'), label * 100)
 
-            images.append(merged_img)
-            labels.append(merged_label)
+            images.append(img), labels.append(label)
+            images_1.append(img_1), labels_1.append(label_1)
+            images_2.append(img_2), labels_2.append(label_2)
 
-        convert(images, labels, fidx)
+        convert(images, labels, images_1, labels_1, images_2, labels_2, fidx)
         if end < (images_num + 1):
             start = end
             end = min(end + FLAGS.file_size, images_num + 1)

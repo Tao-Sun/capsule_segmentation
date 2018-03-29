@@ -10,6 +10,7 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 from python.capsnet_1d.capsnet_1d import inference, loss
 from python.data.affnist import affnist_input
 from python.data.hippo import hippo_input
+from python.data.caltech import caltech_input
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -18,14 +19,14 @@ tf.app.flags.DEFINE_string('summary_dir', '/tmp/',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('data_dir', '/tmp/',
                            """Directory where to read input data """)
-tf.flags.DEFINE_string('dataset', 'affnist',
+tf.flags.DEFINE_string('dataset', 'caltech',
                        'The dataset to use for the experiment.'
-                       'hippo, affnist.')
+                       'hippo, affnist, caltech.')
 tf.app.flags.DEFINE_integer('batch_size', 20,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('file_start', 0,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 319,
+tf.app.flags.DEFINE_integer('file_end', 4,
                             """End file no.""")
 tf.app.flags.DEFINE_integer('max_steps', 100000,
                             """Number of batches to run.""")
@@ -42,15 +43,19 @@ def get_batched_features(batch_size):
                                               FLAGS.data_dir,
                                               batch_size,
                                               file_start=FLAGS.file_start,
-                                              file_end=FLAGS.file_end
-                                              )
+                                              file_end=FLAGS.file_end)
     elif FLAGS.dataset == 'affnist':
         batched_features = affnist_input.inputs('train',
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end
-                                                )
+                                                file_end=FLAGS.file_end)
+    elif FLAGS.dataset == 'caltech':
+        batched_features = caltech_input.inputs('train',
+                                                FLAGS.data_dir,
+                                                batch_size,
+                                                file_start=FLAGS.file_start,
+                                                file_end=FLAGS.file_end)
 
     return batched_features
 

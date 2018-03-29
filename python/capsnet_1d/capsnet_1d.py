@@ -173,8 +173,8 @@ def _margin_loss(labels, raw_logits, margin=0.4, downweight=0.5):
       A tensor with cost for each data point of shape [batch_size].
     """
     logits = raw_logits - 0.5
-    positive_cost = labels * tf.cast(tf.less(logits, margin),
-                                     tf.float32) * tf.pow(logits - margin, 2)
+    positive_cost = labels * \
+        tf.cast(tf.less(logits, margin), tf.float32) * tf.pow(logits - margin, 2)
     negative_cost = (1 - labels) * tf.cast(
         tf.greater(logits, -margin), tf.float32) * tf.pow(logits + margin, 2)
     return 0.5 * positive_cost + downweight * 0.5 * negative_cost
@@ -205,7 +205,7 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
         #     tf.summary.scalar('remake_loss', balanced_remake_loss)
 
         with tf.name_scope('margin'):
-            one_hot_label_class = tf.one_hot(label_class, depth=num_classes)
+            one_hot_label_class = label_class  # tf.one_hot(label_class, depth=num_classes)
             class_caps_logits = tf.norm(class_caps_activations, axis=-1)
             margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
 
