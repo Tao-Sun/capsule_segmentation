@@ -6,7 +6,7 @@ def inference(inputs, num_classes, name='unet'):
     with tf.variable_scope(name) as scope:
         conv1 = conv2d(
             inputs,
-            kernel=9, out_channels=256, stride=1, padding='VALID',
+            kernel=5, out_channels=256, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv1'
         )
         print('conv1 shape: %s' % conv1.get_shape())
@@ -17,7 +17,7 @@ def inference(inputs, num_classes, name='unet'):
         # )
         conv2 = conv2d(
             conv1,
-            kernel=6, out_channels=256, stride=2, padding='VALID',
+            kernel=5, out_channels=256, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv2'
         )
         print('conv2 shape: %s' % conv2.get_shape())
@@ -28,7 +28,7 @@ def inference(inputs, num_classes, name='unet'):
         # )
         conv3 = conv2d(
             conv2,
-            kernel=3, out_channels=256, stride=1, padding='VALID',
+            kernel=5, out_channels=128, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv3'
         )
         print('conv3 shape: %s' % conv3.get_shape())
@@ -41,44 +41,42 @@ def inference(inputs, num_classes, name='unet'):
 
         deconv1 = deconv(
             conv3,
-            kernel=3, out_channels=num_classes, stride=1, data_format='NCHW',
+            kernel=5, out_channels=128, stride=1, data_format='NCHW',
             activation_fn=tf.nn.relu, name='deconv1'
         )
         print('deconv1 shape: %s' % deconv1.get_shape())
-        # concat1 = tf.concat([conv2, deconv1], axis=1, name='concat1')
-        # print('concat1 shape: %s' % concat1.get_shape())
-        # deconv1_conv = conv2d(
-        #     deconv1,
-        #     kernel=3, out_channels=3, stride=1, padding='SAME',
-        #     activation_fn=tf.nn.relu, name='deconv1_conv'
-        # )
+        concat1 = tf.concat([conv2, deconv1], axis=1, name='concat1')
+        deconv1_conv = conv2d(
+            concat1,
+            kernel=3, out_channels=128, stride=1, padding='SAME',
+            activation_fn=tf.nn.relu, name='deconv1_conv'
+        )
         deconv2 = deconv(
-            deconv1,
-            kernel=6, out_channels=num_classes, stride=2, data_format='NCHW',
+            deconv1_conv,
+            kernel=5, out_channels=256, stride=1, data_format='NCHW',
             activation_fn=tf.nn.relu, name='deconv2'
         )
         print('deconv2 shape: %s' % deconv2.get_shape())
-        # concat2 = tf.concat([conv1, deconv2], axis=1, name='concat2')
-        # print('concat2 shape: %s' % concat2.get_shape())
-        # deconv2_conv = conv2d(
-        #     deconv2,
-        #     kernel=3, out_channels=3, stride=1, padding='SAME',
-        #     activation_fn=tf.nn.relu, name='deconv2_conv'
-        # )
+        concat1 = tf.concat([conv1, deconv2], axis=1, name='concat2')
+        deconv2_conv = conv2d(
+            concat1,
+            kernel=3, out_channels=256, stride=1, padding='SAME',
+            activation_fn=tf.nn.relu, name='deconv2_conv'
+        )
 
-        label_logits = deconv(
-            deconv2,
-            kernel=9, out_channels=num_classes, stride=1, data_format='NCHW',
+        deconv3 = deconv(
+            deconv2_conv,
+            kernel=5, out_channels=256, stride=1, data_format='NCHW',
             activation_fn=tf.nn.relu, name='deconv3'
         )
-        # print('deconv3 shape: %s' % deconv3.get_shape())
-        # label_logits = conv2d(
-        #     deconv3,
-        #     kernel=3, out_channels=num_classes, stride=1, padding='SAME',
-        #     activation_fn=tf.nn.relu, name='label_conv'
-        # )
+        print('deconv3 shape: %s' % deconv3.get_shape())
+        label_logits = conv2d(
+            deconv3,
+            kernel=3, out_channels=num_classes, stride=1, padding='SAME',
+            activation_fn=tf.nn.relu, name='label_conv'
+        )
         label_logits = tf.transpose(label_logits, perm=[0, 2, 3, 1])
-        label_logits = tf.check_numerics(label_logits, message="nan or inf from: label_logits")
+        # label_logits = tf.check_numerics(label_logits, message="nan or inf from: label_logits")
         print('label_logits shape: %s' % label_logits.get_shape())
         return label_logits
 

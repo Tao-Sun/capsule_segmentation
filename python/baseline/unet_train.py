@@ -253,7 +253,7 @@ def train(hparams):
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = duration / FLAGS.num_gpus
 
-                format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f '
+                format_str = ('%s: step %d, loss = %.4f (%.1f examples/sec; %.3f '
                               'sec/batch)')
                 print(format_str % (datetime.now(), step, loss_value,
                                     examples_per_sec, sec_per_batch))
@@ -272,8 +272,8 @@ def default_hparams():
     """Builds an HParam object with default hyperparameters."""
     return tf.contrib.training.HParams(
         decay_rate=0.96,
-        decay_steps=1000,
-        learning_rate=0.001,
+        decay_steps=500,
+        learning_rate=0.0001,
     )
 
 
