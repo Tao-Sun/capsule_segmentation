@@ -7,6 +7,7 @@ import tensorflow as tf
 from python.baseline.unet import inference
 from python.data.hippo import hippo_input
 from python.data.affnist import affnist_input
+from python.data.caltech import caltech_input
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -17,16 +18,16 @@ tf.app.flags.DEFINE_string('data_dir', '/tmp/',
                            """Directory where to read input data """)
 tf.app.flags.DEFINE_string('eval_data', 'test',
                            """Either 'test' or 'train_eval'.""")
-tf.flags.DEFINE_string('dataset', 'affnist',
+tf.flags.DEFINE_string('dataset', 'caltech',
                        'The dataset to use for the experiment.'
-                       'hippo, affnist.')
+                       'hippo, affnist, caltech.')
 tf.app.flags.DEFINE_integer('batch_size', 24,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('subject_size', 48,
                             """How many batches constitute a subject.""")
 tf.app.flags.DEFINE_integer('file_start', 0,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 319,
+tf.app.flags.DEFINE_integer('file_end', 4,
                             """End file no.""")
 tf.app.flags.DEFINE_string('checkpoint_dir', '/tmp/cifar10_train',
                            """Directory where to read model checkpoints.""")
@@ -47,15 +48,19 @@ def get_batched_features(batch_size):
                                               FLAGS.data_dir,
                                               batch_size,
                                               file_start=FLAGS.file_start,
-                                              file_end=FLAGS.file_end
-                                              )
+                                              file_end=FLAGS.file_end)
     elif FLAGS.dataset == 'affnist':
         batched_features = affnist_input.inputs('test',
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end
-                                                )
+                                                file_end=FLAGS.file_end)
+    elif FLAGS.dataset == 'caltech':
+        batched_features = caltech_input.inputs('test',
+                                                FLAGS.data_dir,
+                                                batch_size,
+                                                file_start=FLAGS.file_start,
+                                                file_end=FLAGS.file_end)
 
     return batched_features
 
@@ -140,6 +145,13 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op, num_cla
                     for i in range(num_classes - 1):
                         total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
                         total_accuracies[i] = np.concatenate((total_accuracies[i], batch_accuracies[i]))
+                elif FLAGS.dataset == 'caltech':
+                    batch_dices = caltech_input.batch_eval(target_batch, prediction_batch, num_classes)
+                    # print(str(batch_dice_0))
+                    # print(batch_dice_1)
+                    # print
+                    for i in range(num_classes - 1):
+                        total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
 
                 step += 1
 
