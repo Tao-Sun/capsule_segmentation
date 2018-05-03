@@ -65,7 +65,7 @@ def get_batched_features(batch_size):
     return batched_features
 
 
-def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op, num_classes):
+def eval_once(summary_writer, img_indices_op, inferred_labels_op, labels_op, summary_op, num_classes):
     """Run Eval once.
 
     Args:
@@ -117,7 +117,7 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op, num_cla
             step = 0
             group = 0
             while step < num_iter and not coord.should_stop():
-                prediction_batch, target_batch = sess.run([inferred_labels_op, labels_op])
+                indices_batch, prediction_batch, target_batch = sess.run([img_indices_op, inferred_labels_op, labels_op])
 
                 if FLAGS.dataset == "hippo":
                     prediction_batches.append(prediction_batch)
@@ -137,7 +137,7 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op, num_cla
 
                         hippo_input.save_nii(target_subject, prediction_subject, FLAGS.data_dir, group)
                 elif FLAGS.dataset == 'affnist':
-                    batch_dices, batch_accuracies = affnist_input.batch_eval(target_batch, prediction_batch,
+                    batch_dices, batch_accuracies = affnist_input.batch_eval(indices_batch, target_batch, prediction_batch,
                                                                              num_classes)
                     # print(batch_accuracies)
                     # print(batch_dices)
@@ -146,7 +146,7 @@ def eval_once(summary_writer, inferred_labels_op, labels_op, summary_op, num_cla
                         total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
                         total_accuracies[i] = np.concatenate((total_accuracies[i], batch_accuracies[i]))
                 elif FLAGS.dataset == 'caltech':
-                    batch_dices = caltech_input.batch_eval(target_batch, prediction_batch, num_classes)
+                    batch_dices = caltech_input.batch_eval(indices_batch, target_batch, prediction_batch, num_classes)
                     # print(str(batch_dice_0))
                     # print(batch_dice_1)
                     # print
@@ -182,13 +182,14 @@ def evaluate():
         # Get images and labels for CIFAR-10.
         batched_features = get_batched_features(FLAGS.batch_size)
 
+        img_indices = batched_features['indices']
         images, labels = batched_features['images'], batched_features['pixel_labels']
         num_classes = batched_features['num_classes']
 
         batch_queue = tf.contrib.slim.prefetch_queue.prefetch_queue(
-            [images, labels], capacity=2 * FLAGS.num_gpus)
+            [img_indices, images, labels], capacity=2 * FLAGS.num_gpus)
 
-        image_batch, labels_op = batch_queue.dequeue()
+        img_indices_op, image_batch, labels_op = batch_queue.dequeue()
 
         # Build a Graph that computes the logits predictions from the
         # inference model.
@@ -207,7 +208,7 @@ def evaluate():
         summary_writer = tf.summary.FileWriter(FLAGS.summary_dir, g)
 
         while True:
-            eval_once(summary_writer, inferred_labels_op, labels_op, summary_op, num_classes)
+            eval_once(summary_writer, img_indices_op, inferred_labels_op, labels_op, summary_op, num_classes)
             if FLAGS.run_once:
                 break
             time.sleep(FLAGS.eval_interval_secs)

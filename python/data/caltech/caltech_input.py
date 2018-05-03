@@ -48,6 +48,7 @@ def read_and_decode(filename_queue):
         serialized_example,
         # Defaults are not specified since both keys are required.
         features={
+            'index': tf.FixedLenFeature([], tf.int64),
             'height': tf.FixedLenFeature([], tf.int64),
             'width': tf.FixedLenFeature([], tf.int64),
             'label_1': tf.FixedLenFeature([], tf.int64),
@@ -63,6 +64,7 @@ def read_and_decode(filename_queue):
     # Convert from a scalar string tensor (whose single string has
     # length mnist.IMAGE_PIXELS) to a uint8 tensor with shape
     # [mnist.IMAGE_PIXELS].
+    index = tf.cast(features['index'], tf.int32)
     height = tf.cast(features['height'], tf.int32)  # tf.to_int64(features['height'])
     width = tf.cast(features['width'], tf.int32)  #tf.to_int64(features['width'])
     label_class_1 = tf.cast(features['label_1'], tf.int32)
@@ -99,6 +101,7 @@ def read_and_decode(filename_queue):
 
     # Convert from [0, 255] -> [-0.5, 0.5] floats.
     features = {}
+    features['indices'] = index
     features['images'] = tf.cast(image, tf.float32) * (1. / 255)
     features['pixel_labels'] = tf.cast(pixel_labels, tf.int32)
     features['label_class'] = tf.one_hot(label_class_1, NUM_CLASSES) + tf.one_hot(label_class_2, NUM_CLASSES)
@@ -165,7 +168,7 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
         return batched_features
 
 
-def batch_eval(target_batch, prediction_batch, num_classes):
+def batch_eval(indices_batch, target_batch, prediction_batch, num_classes):
     batch_dices = []
     # batch_accuracies = []
     for i in range(num_classes - 1):
@@ -188,8 +191,8 @@ def batch_eval(target_batch, prediction_batch, num_classes):
                 label[np.where(label == j)] = j * 255.0 / (num_classes - 1)
             return label
 
-        cv2.imwrite('target' + str(i) + '.png', display_label(target_batch[i]))
-        cv2.imwrite('prediction' + str(i) + '.png', display_label(prediction_batch[i]))
+        cv2.imwrite('target' + str(indices_batch[i]) + '.png', display_label(target_batch[i]))
+        cv2.imwrite('prediction' + str(indices_batch[i]) + '.png', display_label(prediction_batch[i]))
 
     return batch_dices  # , batch_accuracies
 

@@ -184,6 +184,7 @@ def convert(images, labels, images_1, labels_1, images_2, labels_2, index):
         label_raw_2 = labels_2[i].tostring()
 
         features = tf.train.Features(feature={
+            'index': _int64_feature(i),
             'height': _int64_feature(images[i].shape[0]),
             'width': _int64_feature(images[i].shape[1]),
             'depth': _int64_feature(1),

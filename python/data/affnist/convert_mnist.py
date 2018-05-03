@@ -58,17 +58,17 @@ def convert(images, labels, index):
             image = np.array(img, dtype=np.uint8)
             label = int(labels[i])
 
-            if label in Set([2, 7]):
+            if label in Set([0, 8]):
 
 
-                if label == 2:
+                if label == 0:
                     label_class = 1
                     digit_nums[0] += 1
-                elif label == 7:
+                elif label == 8:
                     label_class = 2
                     digit_nums[1] += 1
-                    if index > 44:
-                        image[12:16, :] = 0
+                if index > 44:
+                    image[12:16, :] = 0
                 # elif label == 8:
                 #     label_class = 3
                 #     digit_nums[2] += 1
@@ -80,6 +80,7 @@ def convert(images, labels, index):
                 label_raw = np.array(np.where(image > 0, label_class, 0), dtype=np.uint8).tostring()
 
                 features = tf.train.Features(feature={
+                    'index': _int64_feature(i),
                     'height': _int64_feature(image.shape[0]),
                     'width': _int64_feature(image.shape[1]),
                     'label_class': _int64_feature(label_class),

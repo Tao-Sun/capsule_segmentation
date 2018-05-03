@@ -272,8 +272,8 @@ def default_hparams():
     """Builds an HParam object with default hyperparameters."""
     return tf.contrib.training.HParams(
         decay_rate=0.96,
-        decay_steps=500,
-        learning_rate=0.0001,
+        decay_steps=1000,
+        learning_rate=0.001,
     )
 
 
