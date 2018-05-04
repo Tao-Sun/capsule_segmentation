@@ -28,7 +28,7 @@ tf.app.flags.DEFINE_integer('file_start', 0,
                             """Start file no.""")
 tf.app.flags.DEFINE_integer('file_end', 4,
                             """End file no.""")
-tf.app.flags.DEFINE_integer('max_steps', 100000,
+tf.app.flags.DEFINE_integer('max_steps', 50000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('num_gpus', 2,
                             """How many GPUs to use.""")
