@@ -173,13 +173,21 @@ def batch_eval(indices_batch, target_batch, prediction_batch, num_classes):
                 batch_dices[j-1].append(dice_val)
                 batch_accuracies[j-1].append(accu_val)
 
-        def display_label(label):
+        def display_target(label):
             for j in range(1, num_classes):
                 label[np.where(label == j)] = j * 255.0 / (num_classes - 1)
-
             return label
+
+        def display_label(label):
+            class_colors = [[0, 255, 0], [0, 0, 255]]
+            color_label = np.zeros((label.shape[0], label.shape[1], 3))
+            for j in range(1, num_classes):
+                color_label[np.where(label == j)] = class_colors[j % 2]
+
+            return color_label
+
         if indices_batch[i] < 100:
-            cv2.imwrite('target' + str(indices_batch[i]) + '.png', display_label(target_batch[i]))
+            cv2.imwrite('target' + str(indices_batch[i]) + '.png', display_target(target_batch[i]))
             cv2.imwrite('prediction' + str(indices_batch[i]) + '.png', display_label(prediction_batch[i]))
 
     return batch_dices, batch_accuracies
