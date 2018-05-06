@@ -36,6 +36,7 @@ import numpy as np
 import skimage.io as io
 import tensorflow as tf
 
+NUM_CLASSES = 2
 
 def read_and_decode(filename_queue):
     reader = tf.TFRecordReader()
@@ -46,6 +47,9 @@ def read_and_decode(filename_queue):
         features={
             'height': tf.FixedLenFeature([], tf.int64),
             'width': tf.FixedLenFeature([], tf.int64),
+            'label_1': tf.FixedLenFeature([], tf.int64),
+            'label_2': tf.FixedLenFeature([], tf.int64),
+            'name': tf.FixedLenFeature([], tf.string),
             'image_raw': tf.FixedLenFeature([], tf.string),
             'label_raw': tf.FixedLenFeature([], tf.string),
         })
@@ -55,6 +59,9 @@ def read_and_decode(filename_queue):
     # [mnist.IMAGE_PIXELS].
     height = tf.cast(features['height'], tf.int32) # tf.to_int64(features['height'])
     width = tf.cast(features['width'], tf.int32) #tf.to_int64(features['width'])
+    label_class_1 = tf.cast(features['label_1'], tf.int32)
+    label_class_2 = tf.cast(features['label_2'], tf.int32)
+    name = tf.cast(features['name'], tf.string)
 
     image = tf.decode_raw(features['image_raw'], tf.uint8)
     image = tf.reshape(image, [1, height, width])
@@ -73,7 +80,7 @@ def read_and_decode(filename_queue):
     image = tf.cast(image, tf.float32) * (1. / 255)
     label = tf.cast(tf.cast(label, tf.float32) * (1. / 255), tf.int32)
 
-    return image, label
+    return image, label, label_class_1, label_class_2, name
 
 
 def inputs(split, data_dir, batch_size, file_start, file_end):
@@ -112,11 +119,12 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
 
         # Even when reading in multiple threads, share the filename
         # queue.
-        image, label = read_and_decode(filename_queue)
+        image, label, label_class_1, label_class_2, name = read_and_decode(filename_queue)
 
         features = {
             'images': image,
-            'labels': label,
+            'pixel_labels': label,
+            'indices': name
         }
 
         batched_features = None
@@ -135,6 +143,7 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
                 num_threads=2,
                 capacity=1000 + 3 * batch_size)
 
+        batched_features['label_class'] = tf.one_hot(label_class_1, NUM_CLASSES) + tf.one_hot(label_class_2, NUM_CLASSES)
         batched_features['num_classes'] = 2
 
         return batched_features

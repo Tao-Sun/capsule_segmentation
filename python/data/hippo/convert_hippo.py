@@ -79,6 +79,8 @@ def _write_file(name, images, labels, names):
             'height': _int64_feature(images[i].shape[0]),
             'width': _int64_feature(images[i].shape[1]),
             'name': _bytes_feature(name),
+            'label_1': _int64_feature(0),
+            'label_2': _int64_feature(1),
             'image_raw': _bytes_feature(image_raw),
             'label_raw': _bytes_feature(label_raw)})
         example = tf.train.Example(features=features)

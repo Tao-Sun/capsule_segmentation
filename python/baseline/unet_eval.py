@@ -132,8 +132,7 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, labels_op, sum
 
                         subject_dice_0, subject_dice_1 = hippo_input.subject_dice(target_subject, prediction_subject)
                         print("subject_dices: %f, %f" % (subject_dice_0, subject_dice_1))
-                        # total_dices_0.append(subject_dice_0)
-                        # total_dices_1.append(subject_dice_1)
+                        total_dices[0].append(subject_dice_0)
 
                         hippo_input.save_nii(target_subject, prediction_subject, FLAGS.data_dir, group)
                 elif FLAGS.dataset == 'affnist':
@@ -157,7 +156,7 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, labels_op, sum
 
             for i in range(num_classes - 1):
                 mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
-                mean_accu = np.mean(total_accuracies[i])
+                # mean_accu = np.mean(total_accuracies[i])
                 print('\nmean dices:  %f' % mean_dices)
                 print('dices std: %f' % std_dices)
                 # print('\nmean accuracies:  %f' % mean_accu)
