@@ -63,7 +63,7 @@ def pad(framed_img, h, w, coeff1, coeff2, label_class=None):
         return padded_img
 
 
-def gen_img(file_path, height, width):
+def extract_img(file_path, height, width):
     def get_vertices(contour):
         vertices = []
         codes = [Path.MOVETO]
@@ -113,38 +113,44 @@ def gen_img(file_path, height, width):
     img = gen_gray_img(fig)
     return img
 
-
-def merge_images(file_path_1, file_path_2, height, width):
-    img1 = gen_img(file_path_1, height, width)
+def merge_images(file_path_1, file_path_2, height, width, overlap):
+    img1 = extract_img(file_path_1, height, width)
     framed_img_1 = frame(img1)
     h1, w1 = framed_img_1.shape
 
-    img2 = gen_img(file_path_2, height, width)
+    img2 = extract_img(file_path_2, height, width)
     framed_img_2 = frame(img2)
     h2, w2 = framed_img_2.shape
 
-    overlap_shape = (min(h1 + h2 - 1, height), min(w1 + w2 - 1, width))
+    combo_shape = (min(h1 + h2 - 1, height), min(w1 + w2 - 1, width))
 
-    overlap_h_coeffs = [random.uniform(0, 0.3), random.uniform(0.8, 1.0)]
-    random.shuffle(overlap_h_coeffs)
-    overlap_w_coeffs = [random.uniform(0, 0.1), random.uniform(0.9, 1.0)]
-    random.shuffle(overlap_w_coeffs)
-    overlap_img1, overlap_label1 = pad(framed_img_1, overlap_shape[0],
-                                       overlap_shape[1], overlap_h_coeffs[0],
-                                       overlap_w_coeffs[0], 1)
-    overlap_img2, overlap_label2 = pad(framed_img_2, overlap_shape[0],
-                                       overlap_shape[1], overlap_h_coeffs[1],
-                                       overlap_w_coeffs[1], 2)
+    if overlap:
+        combo_h_coeffs = [0.5, 0.5]
+    else:
+        combo_h_coeffs = [0.0, 1.0]
+    # random.shuffle(combo_h_coeffs)
+    # combo_w_coeffs = [random.uniform(0.3, 0.4), random.uniform(0.6, 0.7)]
+    if overlap:
+        combo_w_coeffs = [0.5, 0.5]
+    else:
+        combo_w_coeffs = [0.0, 1.0]
+    # random.shuffle(combo_w_coeffs)
+    combo_img1, combo_label1 = pad(framed_img_1, combo_shape[0],
+                                   combo_shape[1], combo_h_coeffs[0],
+                                   combo_w_coeffs[0], 1)
+    combo_img2, combo_label2 = pad(framed_img_2, combo_shape[0],
+                                   combo_shape[1], combo_h_coeffs[1],
+                                   combo_w_coeffs[1], 2)
 
 
     coeff1, coeff2 = random.uniform(0, 1.0), random.uniform(0, 1.0)
-    merged_img_1 = pad(overlap_img1, height, width, coeff1, coeff2).astype(np.uint8)
-    merged_label_1 = pad(overlap_label1, height, width, coeff1, coeff2).astype(np.uint8)
-    merged_img_2 = pad(overlap_img2, height, width, coeff1, coeff2).astype(np.uint8)
-    merged_label_2 = pad(overlap_label2, height, width, coeff1, coeff2).astype(np.uint8)
+    merged_img_1 = pad(combo_img1, height, width, coeff1, coeff2).astype(np.uint8)
+    merged_label_1 = pad(combo_label1, height, width, coeff1, coeff2).astype(np.uint8)
+    merged_img_2 = pad(combo_img2, height, width, coeff1, coeff2).astype(np.uint8)
+    merged_label_2 = pad(combo_label2, height, width, coeff1, coeff2).astype(np.uint8)
 
     shuffle = [0, 1]
-    random.shuffle(shuffle)
+    # random.shuffle(shuffle)
 
     merged_imgs = [merged_img_1, merged_img_2]
     shuffled_imgs = [merged_imgs[shuffle[0]], merged_imgs[shuffle[1]]]
@@ -205,20 +211,25 @@ def convert(images, labels, images_1, labels_1, images_2, labels_2, index):
 def main(unused_argv):
     input_folder1 = FLAGS.data_dir1
     input_folder2 = FLAGS.data_dir2
-    images_num = FLAGS.image_num
+    image_end = FLAGS.image_end
+    occlusion_img_num = FLAGS.occlusion_img_num
+
     height, width = FLAGS.height, FLAGS.width
 
-    start = 1
-    end = min(FLAGS.file_size, images_num + 1)
-    fidx = 0
+    start = FLAGS.img_start
+    end = min(start + FLAGS.file_size, image_end + 1)
+    fidx = FLAGS.fidx_start
+    overlap = FLAGS.overlap
     while True:
         images, labels = [], []
         images_1, labels_1 = [], []
         images_2, labels_2 = [], []
+
         for i in range(start, end):
             file_path_1 = os.path.join(input_folder1, 'annotation_' + str(i).zfill(4) + '.mat')
+            j = random.randint(1, occlusion_img_num)
             file_path_2 = os.path.join(input_folder2, 'annotation_' + str(i).zfill(4) + '.mat')
-            img, label, img_1, label_1, img_2, label_2 = merge_images(file_path_1, file_path_2, height, width)
+            img, label, img_1, label_1, img_2, label_2 = merge_images(file_path_1, file_path_2, height, width, overlap)
             # cv2.imwrite(os.path.join(FLAGS.dest, str(i) + '.png'), img)
             # cv2.imwrite(os.path.join(FLAGS.dest, str(i) + '_l.png'), label * 100)
 
@@ -227,9 +238,9 @@ def main(unused_argv):
             images_2.append(img_2), labels_2.append(label_2)
 
         convert(images, labels, images_1, labels_1, images_2, labels_2, fidx)
-        if end < (images_num + 1):
+        if end < (image_end + 1):
             start = end
-            end = min(end + FLAGS.file_size, images_num + 1)
+            end = min(end + FLAGS.file_size, image_end + 1)
             fidx += 1
         else:
             break
@@ -250,10 +261,28 @@ if __name__ == '__main__':
         help='Directory to download data files.'
     )
     parser.add_argument(
-        '--image_num',
+        '--occlusion_img_num',
         type=int,
-        default='89',
+        default='59',
         help='Total file number.'
+    )
+    parser.add_argument(
+        '--img_start',
+        type=int,
+        default='1',
+        help='image start index.'
+    )
+    parser.add_argument(
+        '--image_end',
+        type=int,
+        default='59',
+        help='Total file number.'
+    )
+    parser.add_argument(
+        '--fidx_start',
+        type=int,
+        default='0',
+        help='file start index.'
     )
     parser.add_argument(
         '--height',
@@ -274,9 +303,15 @@ if __name__ == '__main__':
         help='Destination directory.'
     )
     parser.add_argument(
+        '--overlap',
+        type=bool,
+        default=False,
+        help='whether to be overlap'
+    )
+    parser.add_argument(
         '--file_size',
         type=int,
-        default='20',
+        default='5',
         help='The volume of each generated file.'
     )
 

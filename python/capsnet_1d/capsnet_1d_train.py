@@ -26,7 +26,7 @@ tf.app.flags.DEFINE_integer('batch_size', 20,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('file_start', 0,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 4,
+tf.app.flags.DEFINE_integer('file_end', 11,
                             """End file no.""")
 tf.app.flags.DEFINE_integer('max_steps', 50000,
                             """Number of batches to run.""")
@@ -254,7 +254,7 @@ def train(hparams):
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = duration / FLAGS.num_gpus
 
-                format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f '
+                format_str = ('%s: step %d, loss = %.4f (%.1f examples/sec; %.3f '
                               'sec/batch)')
                 print(format_str % (datetime.now(), step, loss_value,
                                     examples_per_sec, sec_per_batch))
@@ -272,9 +272,9 @@ def train(hparams):
 def default_hparams():
     """Builds an HParam object with default hyperparameters."""
     return tf.contrib.training.HParams(
-        decay_rate=0.96,
+        decay_rate=0.9,
         decay_steps=1000,
-        learning_rate=0.001,
+        learning_rate=0.0005,
     )
 
 

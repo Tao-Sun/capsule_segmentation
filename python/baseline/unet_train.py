@@ -26,7 +26,7 @@ tf.app.flags.DEFINE_integer('batch_size', 20,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('file_start', 0,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 4,
+tf.app.flags.DEFINE_integer('file_end', 11,
                             """End file no.""")
 tf.app.flags.DEFINE_integer('max_steps', 50000,
                             """Number of batches to run.""")
@@ -273,7 +273,7 @@ def default_hparams():
     return tf.contrib.training.HParams(
         decay_rate=0.96,
         decay_steps=1000,
-        learning_rate=0.001,
+        learning_rate=0.00005,
     )
 
 

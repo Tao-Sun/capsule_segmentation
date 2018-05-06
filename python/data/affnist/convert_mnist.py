@@ -41,7 +41,7 @@ def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
-def convert(images, labels, index):
+def convert(images, labels, index, digits, occlusion):
     """Converts a dataset to tfrecords."""
     filename = os.path.join(FLAGS.dest, str(index) + '.tfrecords')
     print('Writing: %s, images num: %d' % (filename, len(images)))
@@ -58,23 +58,21 @@ def convert(images, labels, index):
             image = np.array(img, dtype=np.uint8)
             label = int(labels[i])
 
-            if label in Set([0, 8]):
-
-
-                if label == 0:
+            if label in digits:
+                if label == digits[0]:
                     label_class = 1
                     digit_nums[0] += 1
-                elif label == 8:
+                elif label == digits[1]:
                     label_class = 2
                     digit_nums[1] += 1
-                if index > 44:
-                    image[12:16, :] = 0
-                # elif label == 8:
+                # elif label == digits[2]:
                 #     label_class = 3
                 #     digit_nums[2] += 1
-                # elif label == 0:
+                # elif label == digits[3]:
                 #     label_class = 4
                 #     digit_nums[3] += 1
+                if occlusion & (index > 44):
+                    image[12:16, :] = 0
 
                 image_raw = image.tostring()
                 label_raw = np.array(np.where(image > 0, label_class, 0), dtype=np.uint8).tostring()
@@ -96,6 +94,10 @@ def convert(images, labels, index):
 
 def main(unused_argv):
     data_dir, split = FLAGS.data_dir, FLAGS.split
+    digits = FLAGS.digits
+    occlusion = True if FLAGS.occlusion == 'True' else False
+    print('digits: %s' % str(digits))
+    print('occlusion: %s' % str(occlusion))
 
     data = sio.loadmat(os.path.join(data_dir, split + '.mat'))
 
@@ -111,7 +113,7 @@ def main(unused_argv):
     i = 0
     total_nums = np.zeros(4)
     while True:
-        digit_nums = convert(np.transpose(images[:, start:end]), np.transpose(labels[start:end]), i)
+        digit_nums = convert(np.transpose(images[:, start:end]), np.transpose(labels[start:end]), i, digits, occlusion)
         print("File example nums: %s" % digit_nums)
         total_nums = total_nums + digit_nums
 
@@ -149,6 +151,18 @@ if __name__ == '__main__':
         '--file_size',
         type=int,
         help='The volume of each generated file.'
+    )
+    parser.add_argument(
+        '--digits',
+        type=list,
+        default=[7, 8],
+        help='Digits to convert.'
+    )
+    parser.add_argument(
+        '--occlusion',
+        type=str,
+        default='False',
+        help='Whether to generate occlusion parts for digits.'
     )
 
     FLAGS, unparsed = parser.parse_known_args()

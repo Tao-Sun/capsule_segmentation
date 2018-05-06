@@ -45,7 +45,7 @@ def inference(inputs, num_classes, name='unet'):
             activation_fn=tf.nn.relu, name='deconv1'
         )
         print('deconv1 shape: %s' % deconv1.get_shape())
-        # concat1 = tf.concat([conv2, deconv1], axis=1, name='concat1')
+        concat1 = tf.concat([conv2, deconv1], axis=1, name='concat1')
         # print('concat1 shape: %s' % concat1.get_shape())
         # deconv1_conv = conv2d(
         #     deconv1,
@@ -53,12 +53,12 @@ def inference(inputs, num_classes, name='unet'):
         #     activation_fn=tf.nn.relu, name='deconv1_conv'
         # )
         deconv2 = deconv(
-            deconv1,
+            concat1,
             kernel=6, out_channels=num_classes, stride=2, data_format='NCHW',
             activation_fn=tf.nn.relu, name='deconv2'
         )
         print('deconv2 shape: %s' % deconv2.get_shape())
-        # concat2 = tf.concat([conv1, deconv2], axis=1, name='concat2')
+        concat2 = tf.concat([conv1, deconv2], axis=1, name='concat2')
         # print('concat2 shape: %s' % concat2.get_shape())
         # deconv2_conv = conv2d(
         #     deconv2,
@@ -67,7 +67,7 @@ def inference(inputs, num_classes, name='unet'):
         # )
 
         label_logits = deconv(
-            deconv2,
+            concat2,
             kernel=9, out_channels=num_classes, stride=1, data_format='NCHW',
             activation_fn=tf.nn.relu, name='deconv3'
         )
