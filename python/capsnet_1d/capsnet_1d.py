@@ -35,7 +35,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='capsnet_1d
         print("\nconv1 layer:")
         conv1 = conv2d(
             inputs,
-            kernel=9, out_channels=256, stride=1, padding='VALID',
+            kernel=5, out_channels=256, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv1'
         )
         # conv1 = tf.check_numerics(conv1, message="nan or inf from: conv1")
@@ -54,7 +54,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='capsnet_1d
         # (b, 256, 16, 48) -> capsule 1x1 filter, 32 output capsule, strides 1 without padding
         # nets -> activations (?, 14, 14, 32))
         print("\nprimary layer:")
-        primary_out_capsules = 32
+        primary_out_capsules = 24
         primary_caps_activations = primary_caps1d(
             conv1,
             kernel_size=5, out_capsules=primary_out_capsules, stride=2,
@@ -151,7 +151,7 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size):
     # deconv3 = tf.Print(deconv3, [tf.constant("deconv3"), deconv3])
     label_logits = deconv(
         deconv2,
-        kernel=9, out_channels=num_classes, stride=1,
+        kernel=5, out_channels=num_classes, stride=1,
         activation_fn=tf.nn.relu, name='deconv4'
     )
     # label_logits = tf.Print(label_logits, [tf.constant("label_logits"), label_logits])
