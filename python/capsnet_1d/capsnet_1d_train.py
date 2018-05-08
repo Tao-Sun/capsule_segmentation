@@ -244,7 +244,7 @@ def train(hparams):
             # print(format_str % (datetime.now(), step))
 
             start_time = time.time()
-            _, loss_value = sess.run([train_op, loss])
+            _, loss_value, lr_value = sess.run([train_op, loss, learning_rate])
             duration = time.time() - start_time
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
@@ -255,9 +255,9 @@ def train(hparams):
                 sec_per_batch = duration / FLAGS.num_gpus
 
                 format_str = ('%s: step %d, loss = %.4f (%.1f examples/sec; %.3f '
-                              'sec/batch)')
+                              'sec/batch), learning_rate = %.4f')
                 print(format_str % (datetime.now(), step, loss_value,
-                                    examples_per_sec, sec_per_batch))
+                                    examples_per_sec, sec_per_batch, lr_value))
 
             if step % 100 == 0:
                 summary_str = sess.run(summary_op)
@@ -272,9 +272,9 @@ def train(hparams):
 def default_hparams():
     """Builds an HParam object with default hyperparameters."""
     return tf.contrib.training.HParams(
-        decay_rate=0.9,
+        decay_rate=0.96,
         decay_steps=1000,
-        learning_rate=0.0005,
+        learning_rate=0.001,
     )
 
 

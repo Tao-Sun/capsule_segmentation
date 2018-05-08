@@ -1,14 +1,15 @@
 import math
 import time
 
+import cv2
 import numpy as np
+import os
 import tensorflow as tf
 
 from python.capsnet_1d.capsnet_1d import inference
-from python.data.hippo import hippo_input
 from python.data.affnist import affnist_input
 from python.data.caltech import caltech_input
-
+from python.data.hippo import hippo_input
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -65,8 +66,46 @@ def get_batched_features(batch_size):
 
     return batched_features
 
+def _preprocess_hippo(step, target_batch, prediction_batch, total_dices):
+    if step == 0:
+        assert (FLAGS.subject_size % FLAGS.batch_size == 0)
+        group_size = FLAGS.subject_size / FLAGS.batch_size
+        print('group size: %d' % group_size)
+        prediction_batches = []
+        target_batches = []
+        group = 0
 
-def eval_once(summary_writer, img_indices_op, inferred_labels_op, labels_op, summary_op, num_classes):
+    prediction_batches.append(prediction_batch)
+    target_batches.append(target_batch)
+
+    if (step + 1) % group_size == 0:
+        group += 1
+
+        prediction_subject = np.vstack(prediction_batches)
+        target_subject = np.vstack(target_batches)
+        subject_dice_0, subject_dice_1 = hippo_input.subject_dice(target_subject, prediction_subject)
+        print("subject_dices: %f, %f" % (subject_dice_0, subject_dice_1))
+        total_dices[0].append(subject_dice_0)
+
+        hippo_input.save_nii(target_subject, prediction_subject, FLAGS.data_dir, group)
+
+        prediction_batches = []
+        target_batches = []
+
+
+def _preprocess_affinist(num_classes, image_batch, target_batch, prediction_batch, indices_batch, total_dices):
+        batch_dices, batch_accuracies = affnist_input.batch_eval(target_batch, prediction_batch, num_classes)
+
+        for i in range(len(target_batch)):
+            affnist_input.save_files(FLAGS.data_dir, 'caps', indices_batch[i], image_batch[i],
+                                     target_batch[i], prediction_batch[i], num_classes)
+
+        for i in range(num_classes - 1):
+            total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
+            # total_accuracies[i] = np.concatenate((total_accuracies[i], batch_accuracies[i]))
+
+
+def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, labels_op, summary_op, num_classes):
     """Run Eval once.
 
     Args:
@@ -109,50 +148,24 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, labels_op, sum
             total_dices = [[]] * (num_classes - 1)
             total_accuracies = [[]] * (num_classes - 1)
 
-            if FLAGS.dataset == "hippo":
-                assert(FLAGS.subject_size % FLAGS.batch_size == 0)
-                group_size = FLAGS.subject_size / FLAGS.batch_size
-                print('group size: %d' % group_size)
-                prediction_batches = []
-                target_batches = []
-
             step = 0
-            group = 0
             while step < num_iter and not coord.should_stop():
-                indices_batch, prediction_batch, target_batch = sess.run([img_indices_op, inferred_labels_op, labels_op])
+                indices_batch, prediction_batch, image_batch, target_batch = \
+                    sess.run([img_indices_op, inferred_labels_op, images_op, labels_op])
 
                 if FLAGS.dataset == "hippo":
-                    prediction_batches.append(prediction_batch)
-                    target_batches.append(target_batch)
-                    if (step + 1) % group_size == 0:
-                        group += 1
+                    _preprocess_hippo(step, target_batch, prediction_batch, total_dices)
 
-                        prediction_subject = np.vstack(prediction_batches)
-                        target_subject = np.vstack(target_batches)
-                        prediction_batches = []
-                        target_batches = []
-
-                        subject_dice_0, subject_dice_1 = hippo_input.subject_dice(target_subject, prediction_subject)
-                        print("subject_dices: %f, %f" % (subject_dice_0, subject_dice_1))
-                        total_dices[0].append(subject_dice_0)
-
-                        hippo_input.save_nii(target_subject, prediction_subject, FLAGS.data_dir, group)
                 elif FLAGS.dataset == 'affnist':
-                    batch_dices, batch_accuracies = affnist_input.batch_eval(indices_batch, target_batch, prediction_batch, num_classes)
-                    # print(str(batch_dice_0))
-                    # print(batch_dice_1)
-                    # print
-                    for i in range(num_classes - 1):
-                        total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
-                        total_accuracies[i] = np.concatenate((total_accuracies[i], batch_accuracies[i]))
-                elif FLAGS.dataset == 'caltech':
-                    batch_dices = caltech_input.batch_eval(indices_batch, target_batch, prediction_batch, num_classes)
-                    # print(str(batch_dice_0))
-                    # print(batch_dice_1)
-                    # print
-                    for i in range(num_classes - 1):
-                        total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
-                        # total_accuracies[i] = np.concatenate((total_accuracies[i], batch_accuracies[i]))
+                    _preprocess_affinist(num_classes, image_batch, target_batch, prediction_batch, indices_batch, total_dices)
+                # elif FLAGS.dataset == 'caltech':
+                #     batch_dices = caltech_input.batch_eval(indices_batch, target_batch, prediction_batch, num_classes)
+                #     # print(str(batch_dice_0))
+                #     # print(batch_dice_1)
+                #     # print
+                #     for i in range(num_classes - 1):
+                #         total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
+                #         # total_accuracies[i] = np.concatenate((total_accuracies[i], batch_accuracies[i]))
 
                 step += 1
 
@@ -190,11 +203,11 @@ def evaluate():
         batch_queue = tf.contrib.slim.prefetch_queue.prefetch_queue(
             [img_indices, images, labels], capacity=2 * FLAGS.num_gpus)
 
-        img_indices_op, image_batch, labels_op = batch_queue.dequeue()
+        img_indices_op, images_op, labels_op = batch_queue.dequeue()
 
         # Build a Graph that computes the logits predictions from the
         # inference model.
-        class_caps_activations, remakes_flatten, label_logits = inference(image_batch, num_classes)
+        class_caps_activations, remakes_flatten, label_logits = inference(images_op, num_classes)
         inferred_labels_op = tf.argmax(label_logits, axis=3)
 
         # Restore the moving average version of the learned variables for eval.
@@ -209,7 +222,7 @@ def evaluate():
         summary_writer = tf.summary.FileWriter(FLAGS.summary_dir, g)
 
         while True:
-            eval_once(summary_writer, img_indices_op, inferred_labels_op, labels_op, summary_op, num_classes)
+            eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, labels_op, summary_op, num_classes)
             if FLAGS.run_once:
                 break
             time.sleep(FLAGS.eval_interval_secs)

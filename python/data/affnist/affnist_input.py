@@ -34,9 +34,9 @@ import sys
 import numpy as np
 import skimage.io as io
 import tensorflow as tf
-import cv2
 
 from python.utils import dice, accuracy
+import cv2
 
 NUM_CLASSES = 3
 
@@ -154,7 +154,7 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
         return batched_features
 
 
-def batch_eval(indices_batch, target_batch, prediction_batch, num_classes):
+def batch_eval(target_batch, prediction_batch, num_classes):
     batch_dices = []
     batch_accuracies = []
     for i in range(num_classes - 1):
@@ -173,24 +173,31 @@ def batch_eval(indices_batch, target_batch, prediction_batch, num_classes):
                 batch_dices[j-1].append(dice_val)
                 batch_accuracies[j-1].append(accu_val)
 
-        def display_target(label):
-            for j in range(1, num_classes):
-                label[np.where(label == j)] = j * 255.0 / (num_classes - 1)
-            return label
-
-        def display_label(label):
-            class_colors = [[0, 255, 0], [0, 0, 255]]
-            color_label = np.zeros((label.shape[0], label.shape[1], 3))
-            for j in range(1, num_classes):
-                color_label[np.where(label == j)] = class_colors[j % 2]
-
-            return color_label
-
-        if indices_batch[i] < 100:
-            cv2.imwrite('target' + str(indices_batch[i]) + '.png', display_target(target_batch[i]))
-            cv2.imwrite('prediction' + str(indices_batch[i]) + '.png', display_label(prediction_batch[i]))
-
     return batch_dices, batch_accuracies
+
+
+def save_files(save_dir, model_type, file_no, image, label, prediction, num_classes):
+    def update_target():
+        for j in range(1, num_classes):
+            label[np.where(label == j)] = j * 255.0 / (num_classes - 1)
+
+    def make_color_prediction():
+        class_colors = [[0, 255, 0], [0, 0, 255]]
+        color_prediction = np.zeros((prediction.shape[0], prediction.shape[1], 3))
+        for j in range(1, num_classes):
+            color_prediction[np.where(prediction == j)] = class_colors[j % 2]
+        return color_prediction
+
+    update_target()
+    prediction_img = make_color_prediction()
+
+    image_path = os.path.join(save_dir, model_type, str(file_no) + '_img' + '.png')
+    target_path = os.path.join(save_dir, model_type, str(file_no) + '_target' + '.png')
+    prediction_path = os.path.join(save_dir, model_type, str(file_no) + '_prediction' + '.png')
+    image = np.array(255 * np.squeeze(image), dtype=np.uint8)
+    cv2.imwrite(image_path, image)
+    cv2.imwrite(target_path, label)
+    cv2.imwrite(prediction_path, prediction_img)
 
 
 if __name__ == '__main__':

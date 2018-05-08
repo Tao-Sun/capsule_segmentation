@@ -58,7 +58,7 @@ def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routi
     def _body(i, logits, activations):
         """Routing while loop."""
         # route: [batch, input_dim, output_dim, ...]
-        route = tf.nn.log_softmax(logits, dim=2)
+        route = tf.nn.softmax(logits, dim=2)
         # route = tf.check_numerics(route, message="nan or inf from: route in routing:"+p)
         # route = tf.nn.softmax(logits, dim=2)
         # route_print = tf.Print(route, [i, votes, route])
