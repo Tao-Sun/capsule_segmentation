@@ -66,15 +66,7 @@ def get_batched_features(batch_size):
 
     return batched_features
 
-def _preprocess_hippo(step, target_batch, prediction_batch, total_dices):
-    if step == 0:
-        assert (FLAGS.subject_size % FLAGS.batch_size == 0)
-        group_size = FLAGS.subject_size / FLAGS.batch_size
-        print('group size: %d' % group_size)
-        prediction_batches = []
-        target_batches = []
-        group = 0
-
+def _preprocess_hippo(step, prediction_batches, target_batches, target_batch, prediction_batch, total_dices, group, group_size):
     prediction_batches.append(prediction_batch)
     target_batches.append(target_batch)
 
@@ -91,6 +83,8 @@ def _preprocess_hippo(step, target_batch, prediction_batch, total_dices):
 
         prediction_batches = []
         target_batches = []
+
+    return prediction_batches, target_batches, group
 
 
 def _preprocess_affinist(num_classes, image_batch, target_batch, prediction_batch, indices_batch, total_dices):
@@ -149,12 +143,22 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
             total_accuracies = [[]] * (num_classes - 1)
 
             step = 0
+            if FLAGS.dataset == "hippo":
+                assert (FLAGS.subject_size % FLAGS.batch_size == 0)
+                prediction_batches = []
+                target_batches = []
+                group_size = FLAGS.subject_size / FLAGS.batch_size
+                print('group size: %d' % group_size)
+                group = 0
+
             while step < num_iter and not coord.should_stop():
                 indices_batch, prediction_batch, image_batch, target_batch = \
                     sess.run([img_indices_op, inferred_labels_op, images_op, labels_op])
 
                 if FLAGS.dataset == "hippo":
-                    _preprocess_hippo(step, target_batch, prediction_batch, total_dices)
+                    prediction_batches, target_batches, group= \
+                        _preprocess_hippo(step, prediction_batches, target_batches,
+                                          target_batch, prediction_batch, total_dices, group, group_size)
 
                 elif FLAGS.dataset == 'affnist':
                     _preprocess_affinist(num_classes, image_batch, target_batch, prediction_batch, indices_batch, total_dices)

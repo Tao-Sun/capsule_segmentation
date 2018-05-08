@@ -55,7 +55,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='capsnet_1d
         # nets -> activations (?, 14, 14, 32))
         print("\nprimary layer:")
         primary_out_capsules = 24
-        primary_caps_activations = primary_caps1d(
+        primary_caps_activations, conv2 = primary_caps1d(
             conv1,
             kernel_size=5, out_capsules=primary_out_capsules, stride=2,
             padding='VALID', activation_length=8, name='primary_caps'
@@ -89,7 +89,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='capsnet_1d
         label_logits = _decode(
             primary_caps_activations, primary_out_capsules,
             coupling_coeffs=class_coupling_coeffs,
-            num_classes=num_classes, batch_size=batch_size, conv1=conv1)
+            num_classes=num_classes, batch_size=batch_size, conv1=conv1, conv2=conv2)
         # label_logits = tf.Print(label_logits, [tf.constant("label_logits"), label_logits[0]], summarize=100)
         # label_logits = tf.check_numerics(label_logits, message="nan or inf from: label_logits")
 
@@ -116,7 +116,7 @@ def _remake(class_caps_activations, num_pixels):
 
     return remakes_flatten  # (b, 1344)
 
-def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, conv1):
+def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, conv1, conv2):
     capsule_probs = tf.norm(activations, axis=-1)  # # (b, 32, 4, 20, 8) -> (b, 32, 4, 20)
     caps_probs_tiled = tf.tile(tf.expand_dims(capsule_probs, -1), [1, 1, 1, 1, num_classes])  # (b, 32, 4, 20, 2)
     # caps_probs_tiled = tf.check_numerics(caps_probs_tiled, message="nan or inf from: caps_probs_tiled")
@@ -137,10 +137,10 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, 
     #     activation_fn=tf.nn.relu, name='deconv1'
     # )
     # deconv1 = tf.Print(deconv1, [tf.constant("deconv1"), deconv1])
-    print('class_labels shape: %s' % primary_labels.get_shape())
-
+    print('primary_labels shape: %s' % primary_labels.get_shape())
+    concat1 = tf.concat([tf.transpose(conv2, perm=[0, 2, 3, 1]), primary_labels], axis=3, name='concat1')
     primary_conv = conv2d(
-        primary_labels,
+        concat1,
         kernel=3, out_channels=128, stride=1, padding='SAME',
         activation_fn=tf.nn.relu, data_format='NHWC', name='primary_conv'
     )
@@ -151,7 +151,7 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, 
         activation_fn=tf.nn.relu, name='deconv2'
     )
     print('deconv2 shape: %s' % deconv2.get_shape())
-    concat2 = tf.concat([tf.transpose(conv1, perm=[0, 2, 3, 1]), deconv2], axis=3, name='concat3')
+    concat2 = tf.concat([tf.transpose(conv1, perm=[0, 2, 3, 1]), deconv2], axis=3, name='concat2')
     # deconv2 = tf.Print(deconv2, [tf.constant("deconv2"), deconv2])
     deconv2_conv = conv2d(
         concat2,
