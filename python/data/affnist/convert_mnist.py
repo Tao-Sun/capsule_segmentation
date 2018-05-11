@@ -71,12 +71,12 @@ def convert(images, labels, index, digits, occlusion):
                 elif label == digits[1]:
                     label_class = 2
                     digit_nums[1] += 1
-                # elif label == digits[2]:
-                #     label_class = 3
-                #     digit_nums[2] += 1
-                # elif label == digits[3]:
-                #     label_class = 4
-                #     digit_nums[3] += 1
+                elif label == digits[2]:
+                    label_class = 3
+                    digit_nums[2] += 1
+                elif label == digits[3]:
+                    label_class = 4
+                    digit_nums[3] += 1
                 max_noise_val = 5
 
 

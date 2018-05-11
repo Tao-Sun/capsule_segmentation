@@ -40,7 +40,6 @@ import cv2
 
 NUM_CLASSES = 3
 
-
 def read_and_decode(filename_queue):
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
@@ -182,10 +181,10 @@ def save_files(save_dir, model_type, file_no, image, label, prediction, num_clas
             label[np.where(label == j)] = j * 255.0 / (num_classes - 1)
 
     def make_color_prediction():
-        class_colors = [[0, 255, 0], [0, 0, 255]]
+        class_colors = [[0, 255, 0], [0, 0, 255], [255, 0, 0], (0, 255, 255)]
         color_prediction = np.zeros((prediction.shape[0], prediction.shape[1], 3))
         for j in range(1, num_classes):
-            color_prediction[np.where(prediction == j)] = class_colors[j % 2]
+            color_prediction[np.where(prediction == j)] = class_colors[j % (num_classes - 1)]
         return color_prediction
 
     update_target()

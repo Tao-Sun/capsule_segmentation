@@ -255,7 +255,7 @@ def train(hparams):
                 sec_per_batch = duration / FLAGS.num_gpus
 
                 format_str = ('%s: step %d, loss = %.4f (%.1f examples/sec; %.3f '
-                              'sec/batch), learning_rate = %.4f')
+                              'sec/batch), learning_rate = %.8f')
                 print(format_str % (datetime.now(), step, loss_value,
                                     examples_per_sec, sec_per_batch, lr_value))
 
@@ -274,7 +274,7 @@ def default_hparams():
     return tf.contrib.training.HParams(
         decay_rate=0.96,
         decay_steps=1000,
-        learning_rate=0.001,
+        learning_rate=0.001
     )
 
 

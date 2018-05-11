@@ -82,8 +82,8 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='capsnet_1d
         # class_caps_activations = tf.check_numerics(class_caps_activations, message="nan or inf from: class_caps_activations")
         print('class_caps_activations shape: %s' % class_caps_activations.get_shape())
 
-        # remakes_flatten = _remake(class_caps_activations, image_height * image_width) if remake else None
-        remakes_flatten = None
+        remakes_flatten = _remake(class_caps_activations, image_height * image_width) if remake else None
+        # remakes_flatten = None
 
         print("\ndecode layers:")
         label_logits = _decode(
@@ -100,7 +100,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='capsnet_1d
     return class_caps_activations, remakes_flatten, label_logits
 
 def _remake(class_caps_activations, num_pixels):
-    first_layer_size, second_layer_size = 672, 1344
+    first_layer_size, second_layer_size = 512, 1024
     capsules_2d = tf.contrib.layers.flatten(class_caps_activations)
 
     remakes_flatten = tf.contrib.layers.stack(
@@ -217,27 +217,26 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
     """
 
     with tf.name_scope('loss'):
-        # with tf.name_scope('remake'):
-        #     image_flatten = tf.contrib.layers.flatten(images)
-        #     distance = tf.pow(image_flatten - remakes_flatten, 2)
-        #     remake_loss = tf.reduce_sum(distance, axis=-1)
+        with tf.name_scope('remake'):
+            image_flatten = tf.contrib.layers.flatten(images)
+            distance = tf.pow(image_flatten - remakes_flatten, 2)
+            remake_loss = tf.reduce_sum(distance, axis=-1)
+
+            batch_remake_loss = tf.reduce_mean(remake_loss)
+            balanced_remake_loss = 0.05 * batch_remake_loss
+
+            tf.add_to_collection('losses', balanced_remake_loss)
+            tf.summary.scalar('remake_loss', balanced_remake_loss)
+
+        # with tf.name_scope('margin'):
+        #     one_hot_label_class = label_class  # tf.one_hot(label_class, depth=num_classes)
+        #     class_caps_logits = tf.norm(class_caps_activations, axis=-1)
+        #     margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
         #
-        #     batch_remake_loss = tf.reduce_mean(remake_loss)
-        #     balanced_remake_loss = 0.05 * batch_remake_loss
-        #
-        #     tf.add_to_collection('losses', balanced_remake_loss)
-        #     tf.summary.scalar('remake_loss', balanced_remake_loss)
-
-        with tf.name_scope('margin'):
-            one_hot_label_class = label_class  # tf.one_hot(label_class, depth=num_classes)
-            class_caps_logits = tf.norm(class_caps_activations, axis=-1)
-            margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
-
-            batch_margin_loss = tf.reduce_mean(margin_loss)
-            # batch_margin_loss = tf.Print(batch_margin_loss, [batch_margin_loss])
-            tf.add_to_collection('losses', batch_margin_loss)
-            tf.summary.scalar('margin_loss', batch_margin_loss)
-
+        #     batch_margin_loss = tf.reduce_mean(margin_loss)
+        #     # batch_margin_loss = tf.Print(batch_margin_loss, [batch_margin_loss])
+        #     tf.add_to_collection('losses', batch_margin_loss)
+        #     tf.summary.scalar('margin_loss', batch_margin_loss)
 
         with tf.name_scope('decode'):
             # labels2d = tf.Print(labels2d, [labels2d[0]], summarize=100, message="labels2d: ")
@@ -246,7 +245,8 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=one_hot_labels,
                                                                     logits=label_logits)
 
-            class_weights = tf.constant([1.0] + [5.0]*(num_classes-1))
+            # class_weights = tf.constant([1.0, 8.0, 2.0, 2.0, 10.0])
+            class_weights = tf.constant([1.0] + [5.0] * (num_classes - 1))
             # deduce weights for batch samples based on their true label
             weights = tf.reduce_sum(class_weights * one_hot_labels, axis=3)
 
