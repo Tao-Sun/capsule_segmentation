@@ -117,7 +117,11 @@ def eval_once(summary_writer, img_indices_op, images_op, inferred_labels_op, lab
             step = 0
             group = 0
             while step < num_iter and not coord.should_stop():
-                indices_batch, image_batch, prediction_batch, target_batch = sess.run([img_indices_op, images_op, inferred_labels_op, labels_op])
+                if step % 100 ==0:
+                    print("step: %d" % step)
+
+                indices_batch, image_batch, prediction_batch, target_batch = \
+                    sess.run([img_indices_op, images_op, inferred_labels_op, labels_op])
 
                 if FLAGS.dataset == "hippo":
                     prediction_batches.append(prediction_batch)

@@ -39,6 +39,7 @@ from python.utils import dice, accuracy
 import cv2
 
 NUM_CLASSES = 3
+HEIGHT, WIDTH = 40, 40
 
 def read_and_decode(filename_queue):
     reader = tf.TFRecordReader()
@@ -65,11 +66,11 @@ def read_and_decode(filename_queue):
 
     image = tf.decode_raw(features['image_raw'], tf.uint8)
     image = tf.reshape(image, [1, height, width])
-    image.set_shape([1, 28, 28])
+    image.set_shape([1, HEIGHT, WIDTH])
 
     pixel_labels = tf.decode_raw(features['label_raw'], tf.uint8)
     pixel_labels = tf.reshape(pixel_labels, [height, width])
-    pixel_labels.set_shape([28, 28])
+    pixel_labels.set_shape([HEIGHT, WIDTH])
 
     # OPTIONAL: Could reshape into a 28x28 image and apply distortions
     # here.  Since we are not applying any distortions in this
@@ -109,15 +110,18 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
     # file_names = [os.path.join(data_dir, str(file_idx) + '.tfrecords') for file_idx in range(0, file_end + 1)]
     if split == 'train':
         file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, test_start_num)]
-    elif split == 'test':
+    elif split == 'validation':
         print('test start num: %d' % test_start_num)
         file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(test_start_num, file_end + 1)]
+    elif split == 'test':
+        print('test start num: %d' % test_start_num)
+        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, file_end + 1)]
 
     with tf.name_scope('input'):
         shuffle = None
         if split == 'train':
             shuffle = True
-        elif split == 'test':
+        elif split == 'test' or split == 'validation':
             shuffle = False
         filename_queue = tf.train.string_input_producer(file_names, shuffle=shuffle)
 
@@ -142,7 +146,7 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
                 capacity=1000 + 3 * batch_size,
                 # Ensures a minimum amount of shuffling of examples.
                 min_after_dequeue=1000)
-        elif split == 'test':
+        elif split == 'test' or split == 'validation':
             batched_features = tf.train.batch(
                 features, batch_size=batch_size,
                 num_threads=2,

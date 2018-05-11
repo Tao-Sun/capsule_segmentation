@@ -25,11 +25,7 @@ import sys
 import tensorflow as tf
 import scipy.io as sio
 import numpy as np
-import cv2
-from sets import Set
-import random
-import struct
-# from matplotlib import pyplot as plt
+from python.utils import add_noise
 
 FLAGS = None
 
@@ -42,10 +38,7 @@ def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
-def _add_noise(img, low, high):
-    noise = cv2.randu(np.zeros(img.shape, np.uint8), low, high)
-    img = cv2.add(img, noise)
-    return img
+
 
 def convert(images, labels, index, digits, occlusion):
     """Converts a dataset to tfrecords."""
@@ -77,13 +70,12 @@ def convert(images, labels, index, digits, occlusion):
                 elif label == digits[3]:
                     label_class = 4
                     digit_nums[3] += 1
-                max_noise_val = 5
-
 
                 if occlusion & (index > 44):
                     image[12:16, :] = 0
                 #cv2.imwrite(str(i) + "_.png", _add_noise(image, 1, max_noise_val))
-                image = _add_noise(image, 1, max_noise_val)
+                max_noise_val = 5
+                image = add_noise(image, 1, max_noise_val)
                 image_raw = image.tostring()
                 label_raw = np.array(np.where(image > 2 * max_noise_val, label_class, 0), dtype=np.uint8).tostring()
 

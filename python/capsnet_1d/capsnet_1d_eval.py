@@ -41,24 +41,25 @@ tf.app.flags.DEFINE_integer('num_gpus', 2,
                             """How many GPUs to use.""")
 tf.app.flags.DEFINE_boolean('run_once', False,
                             """Whether to run eval only once.""")
-
+tf.app.flags.DEFINE_string('split', 'validation',
+                            """validation or test, split to evaluate.""")
 
 def get_batched_features(batch_size):
     batched_features = None
     if FLAGS.dataset == 'hippo':
-        batched_features = hippo_input.inputs('test',
+        batched_features = hippo_input.inputs(FLAGS.split,
                                               FLAGS.data_dir,
                                               batch_size,
                                               file_start=FLAGS.file_start,
                                               file_end=FLAGS.file_end)
     elif FLAGS.dataset == 'affnist':
-        batched_features = affnist_input.inputs('test',
+        batched_features = affnist_input.inputs(FLAGS.split,
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
                                                 file_end=FLAGS.file_end)
     elif FLAGS.dataset == 'caltech':
-        batched_features = caltech_input.inputs('test',
+        batched_features = caltech_input.inputs(FLAGS.split,
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
@@ -91,8 +92,9 @@ def _preprocess_affinist(num_classes, image_batch, target_batch, prediction_batc
         batch_dices, batch_accuracies = affnist_input.batch_eval(target_batch, prediction_batch, num_classes)
 
         for i in range(len(target_batch)):
-            affnist_input.save_files(FLAGS.data_dir, 'caps', indices_batch[i], image_batch[i],
-                                     target_batch[i], prediction_batch[i], num_classes)
+            if indices_batch[i] < 1000:
+                affnist_input.save_files(FLAGS.data_dir, 'caps', indices_batch[i], image_batch[i],
+                                         target_batch[i], prediction_batch[i], num_classes)
 
         for i in range(num_classes - 1):
             total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
@@ -136,7 +138,7 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
                                                  start=True))
 
             num_iter = int(math.ceil(FLAGS.num_examples / FLAGS.batch_size))
-            print("num_iter: %d" % num_iter)
+            print("total num_iter: %d" % num_iter)
             total_sample_count = num_iter * FLAGS.batch_size
 
             total_dices = [[]] * (num_classes - 1)
@@ -152,6 +154,8 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
                 group = 0
 
             while step < num_iter and not coord.should_stop():
+                if step % 100 ==0:
+                    print("step: %d" % step)
                 indices_batch, prediction_batch, image_batch, target_batch = \
                     sess.run([img_indices_op, inferred_labels_op, images_op, labels_op])
 
