@@ -9,7 +9,7 @@ from python.layers.conv_capsules import conv_capsule1d
 from python.layers.class_capsules import class_caps1d
 
 
-def inference(inputs, num_classes, routing_ites=3, remake=True, name='capsnet_1d'):
+def inference(inputs, num_classes, routing_ites=3, remake=False, name='capsnet_1d'):
     """
 
     :param inputs:
@@ -83,7 +83,6 @@ def inference(inputs, num_classes, routing_ites=3, remake=True, name='capsnet_1d
         print('class_caps_activations shape: %s' % class_caps_activations.get_shape())
 
         remakes_flatten = _remake(class_caps_activations, image_height * image_width) if remake else None
-        # remakes_flatten = None
 
         print("\ndecode layers:")
         label_logits = _decode(
@@ -217,26 +216,26 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
     """
 
     with tf.name_scope('loss'):
-        with tf.name_scope('remake'):
-            image_flatten = tf.contrib.layers.flatten(images)
-            distance = tf.pow(image_flatten - remakes_flatten, 2)
-            remake_loss = tf.reduce_sum(distance, axis=-1)
-
-            batch_remake_loss = tf.reduce_mean(remake_loss)
-            balanced_remake_loss = 0.05 * batch_remake_loss
-
-            tf.add_to_collection('losses', balanced_remake_loss)
-            tf.summary.scalar('remake_loss', balanced_remake_loss)
-
-        # with tf.name_scope('margin'):
-        #     one_hot_label_class = label_class  # tf.one_hot(label_class, depth=num_classes)
-        #     class_caps_logits = tf.norm(class_caps_activations, axis=-1)
-        #     margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
+        # with tf.name_scope('remake'):
+        #     image_flatten = tf.contrib.layers.flatten(images)
+        #     distance = tf.pow(image_flatten - remakes_flatten, 2)
+        #     remake_loss = tf.reduce_sum(distance, axis=-1)
         #
-        #     batch_margin_loss = tf.reduce_mean(margin_loss)
-        #     # batch_margin_loss = tf.Print(batch_margin_loss, [batch_margin_loss])
-        #     tf.add_to_collection('losses', batch_margin_loss)
-        #     tf.summary.scalar('margin_loss', batch_margin_loss)
+        #     batch_remake_loss = tf.reduce_mean(remake_loss)
+        #     balanced_remake_loss = 0.05 * batch_remake_loss
+        #
+        #     tf.add_to_collection('losses', balanced_remake_loss)
+        #     tf.summary.scalar('remake_loss', balanced_remake_loss)
+
+        with tf.name_scope('margin'):
+            one_hot_label_class = label_class  # tf.one_hot(label_class, depth=num_classes)
+            class_caps_logits = tf.norm(class_caps_activations, axis=-1)
+            margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
+
+            batch_margin_loss = tf.reduce_mean(margin_loss)
+            # batch_margin_loss = tf.Print(batch_margin_loss, [batch_margin_loss])
+            tf.add_to_collection('losses', batch_margin_loss)
+            tf.summary.scalar('margin_loss', batch_margin_loss)
 
         with tf.name_scope('decode'):
             # labels2d = tf.Print(labels2d, [labels2d[0]], summarize=100, message="labels2d: ")
