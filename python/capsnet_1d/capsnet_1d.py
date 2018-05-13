@@ -78,11 +78,15 @@ def inference(inputs, num_classes, routing_ites=3, remake=False, name='capsnet_1
             primary_caps_activations,
             num_classes=num_classes, activation_length=16, routing_ites=routing_ites,
             batch_size=batch_size, name='class_capsules')
-        # class_coupling_coeffs = tf.Print(class_coupling_coeffs, [tf.constant("class_coupling_coeffs"), class_coupling_coeffs])
+        # class_coupling_coeffs = tf.Print(class_coupling_coeffs, [class_coupling_coeffs], summarize=50)
         # class_caps_activations = tf.check_numerics(class_caps_activations, message="nan or inf from: class_caps_activations")
+        print('class_coupling_coeffs shape: %s' % class_coupling_coeffs.get_shape())
         print('class_caps_activations shape: %s' % class_caps_activations.get_shape())
 
-        remakes_flatten = _remake(class_caps_activations, image_height * image_width) if remake else None
+        if remake:
+            remakes_flatten = _remake(class_caps_activations, image_height * image_width)
+        else:
+            remakes_flatten = None
 
         print("\ndecode layers:")
         label_logits = _decode(
@@ -216,16 +220,17 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
     """
 
     with tf.name_scope('loss'):
-        # with tf.name_scope('remake'):
-        #     image_flatten = tf.contrib.layers.flatten(images)
-        #     distance = tf.pow(image_flatten - remakes_flatten, 2)
-        #     remake_loss = tf.reduce_sum(distance, axis=-1)
-        #
-        #     batch_remake_loss = tf.reduce_mean(remake_loss)
-        #     balanced_remake_loss = 0.05 * batch_remake_loss
-        #
-        #     tf.add_to_collection('losses', balanced_remake_loss)
-        #     tf.summary.scalar('remake_loss', balanced_remake_loss)
+        if remakes_flatten is not None:
+            with tf.name_scope('remake'):
+                image_flatten = tf.contrib.layers.flatten(images)
+                distance = tf.pow(image_flatten - remakes_flatten, 2)
+                remake_loss = tf.reduce_sum(distance, axis=-1)
+
+                batch_remake_loss = tf.reduce_mean(remake_loss)
+                balanced_remake_loss = 0.05 * batch_remake_loss
+
+                tf.add_to_collection('losses', balanced_remake_loss)
+                tf.summary.scalar('remake_loss', balanced_remake_loss)
 
         with tf.name_scope('margin'):
             one_hot_label_class = label_class  # tf.one_hot(label_class, depth=num_classes)
@@ -233,9 +238,10 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
 
             batch_margin_loss = tf.reduce_mean(margin_loss)
+            balanced_margin_loss = 2 * batch_margin_loss
             # batch_margin_loss = tf.Print(batch_margin_loss, [batch_margin_loss])
-            tf.add_to_collection('losses', batch_margin_loss)
-            tf.summary.scalar('margin_loss', batch_margin_loss)
+            tf.add_to_collection('losses', balanced_margin_loss)
+            tf.summary.scalar('margin_loss', balanced_margin_loss)
 
         with tf.name_scope('decode'):
             # labels2d = tf.Print(labels2d, [labels2d[0]], summarize=100, message="labels2d: ")
@@ -255,7 +261,7 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             print('cross_entropy shape: %s' % weighted_losses.get_shape())
 
             batch_decode_loss = tf.reduce_mean(weighted_losses)
-            balanced_decode_loss = 5 * batch_decode_loss
+            balanced_decode_loss = batch_decode_loss
 
             tf.add_to_collection('losses', balanced_decode_loss)
             tf.summary.scalar('decode_loss', balanced_decode_loss)

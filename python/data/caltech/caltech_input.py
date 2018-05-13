@@ -36,7 +36,7 @@ import skimage.io as io
 import tensorflow as tf
 import cv2
 
-from python.utils import dice, accuracy
+from python.utils import dice, accuracy_stats
 
 HEIGHT, WIDTH = 28, 28
 NUM_CLASSES = 3
@@ -181,7 +181,7 @@ def batch_eval(indices_batch, target_batch, prediction_batch, num_classes):
             target_img = np.where(target_batch[i] == j, 1, 0)
             prediction_img = np.where(prediction_batch[i] == j, 1, 0)
             dice_val = dice(target_img, prediction_img)
-            accu_val = accuracy(target_img, prediction_img)
+            # accu_val = accuracy(target_img, prediction_img)
 
             batch_dices[j - 1].append(dice_val)
                 # batch_accuracies[j - 1].append(accu_val)

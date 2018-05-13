@@ -35,11 +35,11 @@ import numpy as np
 import skimage.io as io
 import tensorflow as tf
 
-from python.utils import dice, accuracy
+from python.utils import dice, accuracy_stats, connected_error_num
 import cv2
 
-NUM_CLASSES = 3
-HEIGHT, WIDTH = 40, 40
+NUM_CLASSES = 11
+HEIGHT, WIDTH = 28, 28
 
 def read_and_decode(filename_queue):
     reader = tf.TFRecordReader()
@@ -103,25 +103,18 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
       must be run using e.g. tf.train.start_queue_runners().
     """
 
-    file_num = file_end - file_start + 1
-    test_start_num = int(0.9 * file_num)
-    file_names = None
+    # file_num = file_end - file_start + 1
+    # test_start_num = int(0.9 * file_num)
+    # file_names = None
 
     # file_names = [os.path.join(data_dir, str(file_idx) + '.tfrecords') for file_idx in range(0, file_end + 1)]
-    if split == 'train':
-        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, test_start_num)]
-    elif split == 'validation':
-        print('test start num: %d' % test_start_num)
-        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(test_start_num, file_end + 1)]
-    elif split == 'test':
-        print('test start num: %d' % test_start_num)
-        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, file_end + 1)]
+    file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(file_start, file_end + 1)]
 
     with tf.name_scope('input'):
         shuffle = None
         if split == 'train':
             shuffle = True
-        elif split == 'test' or split == 'validation':
+        elif split == 'test' and split == 'validation':
             shuffle = False
         filename_queue = tf.train.string_input_producer(file_names, shuffle=shuffle)
 
@@ -157,26 +150,38 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
         return batched_features
 
 
-def batch_eval(target_batch, prediction_batch, num_classes):
+def batch_eval(target_batch, prediction_batch, num_classes, error_block_size):
     batch_dices = []
     batch_accuracies = []
+    batch_error_blocks_num = []
     for i in range(num_classes - 1):
         batch_dices.append([])
-        batch_accuracies.append([])
+        batch_error_blocks_num.append([])
+
+    batch_true_positives = np.zeros(num_classes)
+    batch_class_sums = np.zeros(num_classes)
+    batch_accu_stats = np.array([batch_true_positives, batch_class_sums])
 
     for i in range(len(target_batch)):
         for j in range(1, num_classes):
             # print("label 3 number: %d" % len(np.where(target_batch[i].flatten() == 1)[0]))
             if len(np.where(target_batch[i].flatten() == j)[0]) > 0:
-                target_img = np.where(target_batch[i] == j, 1, 0)
-                prediction_img = np.where(prediction_batch[i] == j, 1, 0)
+                target_label = j
+                target_img = np.where(target_batch[i] == target_label, 1, 0)
+                prediction_img = np.where(prediction_batch[i] == target_label, 1, 0)
                 dice_val = dice(target_img, prediction_img)
-                accu_val = accuracy(target_img, prediction_img)
+                # if j == 3:
+                #     print("find:" + str(dice_val))
+                batch_accu_stats += \
+                    accuracy_stats(target_batch[i].flatten(), prediction_batch[i].flatten(), labels=range(num_classes))
+
+                error_blocks_num = \
+                    connected_error_num(target_batch[i], prediction_batch[i], target_label, error_block_size)
 
                 batch_dices[j-1].append(dice_val)
-                batch_accuracies[j-1].append(accu_val)
+                batch_error_blocks_num[j-1].append(error_blocks_num)
 
-    return batch_dices, batch_accuracies
+    return batch_dices, batch_accu_stats, batch_error_blocks_num
 
 
 def save_files(save_dir, model_type, file_no, image, label, prediction, num_classes):
@@ -185,7 +190,8 @@ def save_files(save_dir, model_type, file_no, image, label, prediction, num_clas
             label[np.where(label == j)] = j * 255.0 / (num_classes - 1)
 
     def make_color_prediction():
-        class_colors = [[0, 255, 0], [0, 0, 255], [255, 0, 0], (0, 255, 255)]
+        class_colors = [[0, 255, 0], [0, 0, 255], [255, 0, 0], [0, 255, 255], [255, 0, 255],
+                        [255, 255, 0], [128, 128, 128], [128, 0, 0], [192, 192, 128], [128, 64, 128]]
         color_prediction = np.zeros((prediction.shape[0], prediction.shape[1], 3))
         for j in range(1, num_classes):
             color_prediction[np.where(prediction == j)] = class_colors[j % (num_classes - 1)]

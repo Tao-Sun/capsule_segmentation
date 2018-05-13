@@ -46,7 +46,7 @@ def convert(images, labels, index, digits, occlusion):
     print('Writing: %s, images num: %d' % (filename, len(images)))
     writer = tf.python_io.TFRecordWriter(filename)
 
-    digit_nums = np.zeros(4)
+    digit_nums = np.zeros(len(digits))
     for i in range(len(images)):
         img = np.reshape(images[i], (28, 28))
 
@@ -58,18 +58,9 @@ def convert(images, labels, index, digits, occlusion):
             label = int(labels[i])
 
             if label in digits:
-                if label == digits[0]:
-                    label_class = 1
-                    digit_nums[0] += 1
-                elif label == digits[1]:
-                    label_class = 2
-                    digit_nums[1] += 1
-                elif label == digits[2]:
-                    label_class = 3
-                    digit_nums[2] += 1
-                elif label == digits[3]:
-                    label_class = 4
-                    digit_nums[3] += 1
+                index = digits.index(label)
+                label_class = index + 1
+                digit_nums[index] += 1
 
                 if occlusion & (index > 44):
                     image[12:16, :] = 0
@@ -77,7 +68,8 @@ def convert(images, labels, index, digits, occlusion):
                 max_noise_val = 5
                 image = add_noise(image, 1, max_noise_val)
                 image_raw = image.tostring()
-                label_raw = np.array(np.where(image > 2 * max_noise_val, label_class, 0), dtype=np.uint8).tostring()
+                label_img = np.array(np.where(image > 2 * max_noise_val, label_class, 0), dtype=np.uint8)
+                label_raw = label_img.tostring()
 
                 features = tf.train.Features(feature={
                     'index': _int64_feature(i),
@@ -113,7 +105,7 @@ def main(unused_argv):
     start = 0
     end = min(FLAGS.file_size, images_num)
     i = 0
-    total_nums = np.zeros(4)
+    total_nums = np.zeros(len(digits))
     while True:
         digit_nums = convert(np.transpose(images[:, start:end]), np.transpose(labels[start:end]), i, digits, occlusion)
         print("File example nums: %s" % digit_nums)
@@ -157,7 +149,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--digits',
         type=list,
-        default=[0, 8],
+        default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
         help='Digits to convert.'
     )
     parser.add_argument(

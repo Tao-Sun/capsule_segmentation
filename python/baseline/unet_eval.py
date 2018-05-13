@@ -8,6 +8,7 @@ from python.baseline.unet import inference
 from python.data.hippo import hippo_input
 from python.data.affnist import affnist_input
 from python.data.caltech import caltech_input
+from python.utils import accuracies
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -39,24 +40,28 @@ tf.app.flags.DEFINE_integer('num_gpus', 2,
                             """How many GPUs to use.""")
 tf.app.flags.DEFINE_boolean('run_once', False,
                             """Whether to run eval only once.""")
+tf.app.flags.DEFINE_string('split', 'validation',
+                            """validation or test, split to evaluate.""")
+tf.app.flags.DEFINE_string('error_block_size', 20,
+                            """size of error blocks.""")
 
 
 def get_batched_features(batch_size):
     batched_features = None
     if FLAGS.dataset == 'hippo':
-        batched_features = hippo_input.inputs('test',
+        batched_features = hippo_input.inputs(FLAGS.split,
                                               FLAGS.data_dir,
                                               batch_size,
                                               file_start=FLAGS.file_start,
                                               file_end=FLAGS.file_end)
     elif FLAGS.dataset == 'affnist':
-        batched_features = affnist_input.inputs('test',
+        batched_features = affnist_input.inputs(FLAGS.split,
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
                                                 file_end=FLAGS.file_end)
     elif FLAGS.dataset == 'caltech':
-        batched_features = caltech_input.inputs('test',
+        batched_features = caltech_input.inputs(FLAGS.split,
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
@@ -105,7 +110,11 @@ def eval_once(summary_writer, img_indices_op, images_op, inferred_labels_op, lab
             total_sample_count = num_iter * FLAGS.batch_size
 
             total_dices = [[]] * (num_classes - 1)
-            total_accuracies = [[]] * (num_classes - 1)
+            total_error_blocks = [[]] * (num_classes - 1)
+
+            total_true_positives = np.zeros(num_classes)
+            total_class_sums = np.zeros(num_classes)
+            total_accu_stats = np.array([total_true_positives, total_class_sums])
 
             if FLAGS.dataset == "hippo":
                 assert(FLAGS.subject_size % FLAGS.batch_size == 0)
@@ -117,7 +126,7 @@ def eval_once(summary_writer, img_indices_op, images_op, inferred_labels_op, lab
             step = 0
             group = 0
             while step < num_iter and not coord.should_stop():
-                if step % 100 ==0:
+                if step % 10 == 0:
                     print("step: %d" % step)
 
                 indices_batch, image_batch, prediction_batch, target_batch = \
@@ -140,18 +149,22 @@ def eval_once(summary_writer, img_indices_op, images_op, inferred_labels_op, lab
 
                         hippo_input.save_nii(target_subject, prediction_subject, FLAGS.data_dir, group)
                 elif FLAGS.dataset == 'affnist':
-                    batch_dices, batch_accuracies = affnist_input.batch_eval(target_batch, prediction_batch, num_classes)
+                    batch_dices, batch_accu_stats, batch_error_blocks_num = \
+                        affnist_input.batch_eval(target_batch, prediction_batch, num_classes, FLAGS.error_block_size)
                     # print(batch_accuracies)
                     # print(batch_dices)
                     # print
 
                     for i in range(len(target_batch)):
-                        affnist_input.save_files(FLAGS.data_dir, 'unet', indices_batch[i], image_batch[i],
-                                                 target_batch[i], prediction_batch[i], num_classes)
+                        if indices_batch[i] < 1000:
+                            affnist_input.save_files(FLAGS.data_dir, 'unet', indices_batch[i], image_batch[i],
+                                                     target_batch[i], prediction_batch[i], num_classes)
+
                     for i in range(num_classes - 1):
                         total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
-                        # total_accuracies[i] = np.concatenate((total_accuracies[i], batch_accuracies[i]))
-                elif FLAGS.dataset == 'caltech':
+                        total_error_blocks[i] = np.concatenate((total_error_blocks[i], batch_error_blocks_num[i]))
+                        total_accu_stats += batch_accu_stats
+
                     batch_dices = caltech_input.batch_eval(indices_batch, target_batch, prediction_batch, num_classes)
                     # print(str(batch_dice_0))
                     # print(batch_dice_1)
@@ -161,11 +174,19 @@ def eval_once(summary_writer, img_indices_op, images_op, inferred_labels_op, lab
 
                 step += 1
 
+            global_accuracy, class_accuracies, class_mean_accuracy = accuracies(total_accu_stats[0], total_accu_stats[1])
+            print('\nglobal accuracy: %f' % global_accuracy)
+            print('mean accuracy: %f\n' % class_mean_accuracy)
+
             for i in range(num_classes - 1):
+                print("class: %d" % i)
                 mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
+                total_block_errors = np.sum(total_error_blocks[i])
                 # mean_accu = np.mean(total_accuracies[i])
-                print('\nmean dices:  %f' % mean_dices)
+                print('mean dices:  %f' % mean_dices)
                 print('dices std: %f' % std_dices)
+                print('accuracy: %f' % class_accuracies[i + 1])
+                print('total block errors:  %f' % total_block_errors)
                 # print('\nmean accuracies:  %f' % mean_accu)
 
             summary = tf.Summary()
