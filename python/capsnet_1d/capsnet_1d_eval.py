@@ -44,7 +44,7 @@ tf.app.flags.DEFINE_boolean('run_once', False,
                             """Whether to run eval only once.""")
 tf.app.flags.DEFINE_string('split', 'validation',
                             """validation or test, split to evaluate.""")
-tf.app.flags.DEFINE_string('error_block_size', 20,
+tf.app.flags.DEFINE_integer('error_block_size', 20,
                             """size of error blocks.""")
 
 def get_batched_features(batch_size):
@@ -201,14 +201,16 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
                 print("class: %d" % i)
                 mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
                 mean_block_errors = np.mean(total_error_blocks[i])
+                total_block_errors = np.sum(total_error_blocks[i])
                 global_error_blocks.extend(total_error_blocks[i].tolist())
                 # mean_accu = np.mean(total_accuracies[i] )
                 print('mean dices:  %f' % mean_dices)
                 print('dices std: %f' % std_dices)
                 print('accuracy: %f' % class_accuracies[i+1])
-                print('total block errors:  %f' % mean_block_errors)
+                print('total block errors:  %d' % total_block_errors)
+                print('mean block errors:  %.6f' % mean_block_errors)
 
-            print('\nmean error blocks:  %f' % np.mean(global_error_blocks))
+            print('\nmean error blocks:  %.6f' % np.mean(global_error_blocks))
 
             summary = tf.Summary()
             summary.ParseFromString(sess.run(summary_op))

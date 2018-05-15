@@ -42,7 +42,7 @@ tf.app.flags.DEFINE_boolean('run_once', False,
                             """Whether to run eval only once.""")
 tf.app.flags.DEFINE_string('split', 'test',
                             """validation or test, split to evaluate.""")
-tf.app.flags.DEFINE_string('error_block_size', 20,
+tf.app.flags.DEFINE_integer('error_block_size', 20,
                             """size of error blocks.""")
 
 
@@ -185,6 +185,7 @@ def eval_once(summary_writer, img_indices_op, images_op, inferred_labels_op, lab
             for i in range(num_classes - 1):
                 print("class: %d" % i)
                 mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
+                mean_block_errors = np.mean(total_error_blocks[i])
                 total_block_errors = np.sum(total_error_blocks[i])
                 global_error_blocks.extend(total_error_blocks[i].tolist())
                 # mean_accu = np.mean(total_accuracies[i])
@@ -192,6 +193,7 @@ def eval_once(summary_writer, img_indices_op, images_op, inferred_labels_op, lab
                 print('dices std: %f' % std_dices)
                 print('accuracy: %f' % class_accuracies[i + 1])
                 print('total block errors:  %f' % total_block_errors)
+                print('mean block errors:  %f' % mean_block_errors)
                 # print('\nmean accuracies:  %f' % mean_accu)
 
             print('\nmean error blocks:  %f' % np.mean(global_error_blocks))
