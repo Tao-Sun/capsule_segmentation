@@ -152,7 +152,8 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
 
             total_true_positives = np.zeros(num_classes)
             total_class_sums = np.zeros(num_classes)
-            total_accu_stats = np.array([total_true_positives, total_class_sums])
+            total_false_positives = np.zeros(num_classes)
+            total_accu_stats = np.array([total_true_positives, total_class_sums, total_false_positives])
 
             step = 0
             if FLAGS.dataset == "hippo":
@@ -188,21 +189,26 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
 
                 step += 1
 
-            global_accuracy, class_accuracies, class_mean_accuracy = accuracies(total_accu_stats[0], total_accu_stats[1])
+            global_accuracy, class_accuracies, class_mean_accuracy, mIoU = \
+                accuracies(total_accu_stats[0], total_accu_stats[1], total_accu_stats[2])
             print('\nglobal accuracy: %f' % global_accuracy)
-            print('class mean accuracy: %f\n' % class_mean_accuracy)
+            print('class mean accuracy: %f' % class_mean_accuracy)
+            print('mIoU: %f\n' % mIoU)
+
+            global_error_blocks = []
 
             for i in range(num_classes - 1):
                 print("class: %d" % i)
                 mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
-                total_block_errors = np.sum(total_error_blocks[i])
+                mean_block_errors = np.mean(total_error_blocks[i])
+                global_error_blocks.extend(total_error_blocks[i].tolist())
                 # mean_accu = np.mean(total_accuracies[i] )
                 print('mean dices:  %f' % mean_dices)
                 print('dices std: %f' % std_dices)
                 print('accuracy: %f' % class_accuracies[i+1])
-                print('total block errors:  %f' % total_block_errors)
+                print('total block errors:  %f' % mean_block_errors)
 
-                # print('\nmean accuracies:  %f' % mean_accu)
+            print('\nmean error blocks:  %f' % np.mean(global_error_blocks))
 
             summary = tf.Summary()
             summary.ParseFromString(sess.run(summary_op))

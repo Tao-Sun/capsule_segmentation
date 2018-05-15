@@ -160,7 +160,8 @@ def batch_eval(target_batch, prediction_batch, num_classes, error_block_size):
 
     batch_true_positives = np.zeros(num_classes)
     batch_class_sums = np.zeros(num_classes)
-    batch_accu_stats = np.array([batch_true_positives, batch_class_sums])
+    batch_mIoU = np.zeros(num_classes)
+    batch_accu_stats = np.array([batch_true_positives, batch_class_sums, batch_mIoU])
 
     for i in range(len(target_batch)):
         for j in range(1, num_classes):
@@ -180,6 +181,10 @@ def batch_eval(target_batch, prediction_batch, num_classes, error_block_size):
 
                 batch_dices[j-1].append(dice_val)
                 batch_error_blocks_num[j-1].append(error_blocks_num)
+
+    # print(batch_dices)
+    # print(np.mean(batch_dices[1]))
+    # print(np.mean(batch_dices[0]))
 
     return batch_dices, batch_accu_stats, batch_error_blocks_num
 

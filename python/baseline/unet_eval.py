@@ -40,7 +40,7 @@ tf.app.flags.DEFINE_integer('num_gpus', 2,
                             """How many GPUs to use.""")
 tf.app.flags.DEFINE_boolean('run_once', False,
                             """Whether to run eval only once.""")
-tf.app.flags.DEFINE_string('split', 'validation',
+tf.app.flags.DEFINE_string('split', 'test',
                             """validation or test, split to evaluate.""")
 tf.app.flags.DEFINE_string('error_block_size', 20,
                             """size of error blocks.""")
@@ -114,7 +114,8 @@ def eval_once(summary_writer, img_indices_op, images_op, inferred_labels_op, lab
 
             total_true_positives = np.zeros(num_classes)
             total_class_sums = np.zeros(num_classes)
-            total_accu_stats = np.array([total_true_positives, total_class_sums])
+            total_false_positives = np.zeros(num_classes)
+            total_accu_stats = np.array([total_true_positives, total_class_sums, total_false_positives])
 
             if FLAGS.dataset == "hippo":
                 assert(FLAGS.subject_size % FLAGS.batch_size == 0)
@@ -165,29 +166,35 @@ def eval_once(summary_writer, img_indices_op, images_op, inferred_labels_op, lab
                         total_error_blocks[i] = np.concatenate((total_error_blocks[i], batch_error_blocks_num[i]))
                         total_accu_stats += batch_accu_stats
 
-                    batch_dices = caltech_input.batch_eval(indices_batch, target_batch, prediction_batch, num_classes)
-                    # print(str(batch_dice_0))
-                    # print(batch_dice_1)
-                    # print
-                    for i in range(num_classes - 1):
-                        total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
+                    # batch_dices = caltech_input.batch_eval(indices_batch, target_batch, prediction_batch, num_classes)
+                    # # print(str(batch_dice_0))
+                    # # print(batch_dice_1)
+                    # # print
+                    # for i in range(num_classes - 1):
+                    #     total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
 
                 step += 1
 
-            global_accuracy, class_accuracies, class_mean_accuracy = accuracies(total_accu_stats[0], total_accu_stats[1])
+            global_accuracy, class_accuracies, class_mean_accuracy, mIoU = \
+                accuracies(total_accu_stats[0], total_accu_stats[1], total_accu_stats[2])
             print('\nglobal accuracy: %f' % global_accuracy)
-            print('mean accuracy: %f\n' % class_mean_accuracy)
+            print('mean accuracy: %f' % class_mean_accuracy)
+            print('mIoU: %f\n' % mIoU)
 
+            global_error_blocks= []
             for i in range(num_classes - 1):
                 print("class: %d" % i)
                 mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
                 total_block_errors = np.sum(total_error_blocks[i])
+                global_error_blocks.extend(total_error_blocks[i].tolist())
                 # mean_accu = np.mean(total_accuracies[i])
                 print('mean dices:  %f' % mean_dices)
                 print('dices std: %f' % std_dices)
                 print('accuracy: %f' % class_accuracies[i + 1])
                 print('total block errors:  %f' % total_block_errors)
                 # print('\nmean accuracies:  %f' % mean_accu)
+
+            print('\nmean error blocks:  %f' % np.mean(global_error_blocks))
 
             summary = tf.Summary()
             summary.ParseFromString(sess.run(summary_op))
