@@ -7,10 +7,11 @@ import numpy as np
 import tensorflow as tf
 from six.moves import xrange  # pylint: disable=redefined-builtin
 
-from python.capsnet_1d.capsnet_1d import inference, loss
+from python.capsnet_1d.capsnet_pascal import inference
+from python.capsnet_1d.capsnet_1d import loss
 from python.data.affnist import affnist_input
 from python.data.hippo import hippo_input
-from python.data.caltech import caltech_input
+from python.data.pascal import pascal_input
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -32,6 +33,8 @@ tf.app.flags.DEFINE_integer('max_steps', 50000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('num_gpus', 2,
                             """How many GPUs to use.""")
+tf.app.flags.DEFINE_integer('num_classes', 11,
+                            """How many classes to classify.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
 
@@ -49,13 +52,15 @@ def get_batched_features(batch_size):
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end)
-    elif FLAGS.dataset == 'caltech':
-        batched_features = caltech_input.inputs('train',
-                                                FLAGS.data_dir,
-                                                batch_size,
-                                                file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end)
+                                                file_end=FLAGS.file_end,
+                                                num_classes=FLAGS.num_classes)
+    elif FLAGS.dataset == 'pascal':
+        batched_features = pascal_input.inputs('train',
+                                               FLAGS.data_dir,
+                                               batch_size,
+                                               file_start=FLAGS.file_start,
+                                               file_end=FLAGS.file_end,
+                                               num_classes=FLAGS.num_classes)
 
     return batched_features
 
@@ -249,12 +254,12 @@ def train(hparams):
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
-            if step % 50 == 0:
+            if step % 10 == 0:
                 num_examples_per_step = FLAGS.batch_size * FLAGS.num_gpus
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = duration / FLAGS.num_gpus
 
-                format_str = ('%s: step %d, loss = %.4f (%.1f examples/sec; %.3f '
+                format_str = ('%s: step %d, loss = %.8f (%.1f examples/sec; %.3f '
                               'sec/batch), learning_rate = %.8f')
                 print(format_str % (datetime.now(), step, loss_value,
                                     examples_per_sec, sec_per_batch, lr_value))
@@ -273,8 +278,8 @@ def default_hparams():
     """Builds an HParam object with default hyperparameters."""
     return tf.contrib.training.HParams(
         decay_rate=0.8,
-        decay_steps=1000,
-        learning_rate=0.001
+        decay_steps=800,
+        learning_rate=0.0005
     )
 
 

@@ -38,7 +38,6 @@ import tensorflow as tf
 from python.utils import dice, accuracy_stats, connected_error_num
 import cv2
 
-NUM_CLASSES = 11
 HEIGHT, WIDTH = 28, 28
 
 def read_and_decode(filename_queue):
@@ -84,7 +83,7 @@ def read_and_decode(filename_queue):
     return index, image, pixel_labels, label_class
 
 
-def inputs(split, data_dir, batch_size, file_start, file_end):
+def inputs(split, data_dir, batch_size, file_start, file_end, num_classes):
     """Reads input data num_epochs times.
 
     Args:
@@ -126,7 +125,7 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
             'indices': index,
             'images': image,
             'pixel_labels': pixel_labels,
-            'label_class': tf.one_hot(label_class, NUM_CLASSES)
+            'label_class': tf.one_hot(label_class, num_classes)
         }
 
         batched_features = None
@@ -145,7 +144,7 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
                 num_threads=2,
                 capacity=1000 + 3 * batch_size)
 
-        batched_features['num_classes'] = NUM_CLASSES
+        batched_features['num_classes'] = num_classes
 
         return batched_features
 

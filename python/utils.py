@@ -29,6 +29,7 @@ def accuracy_stats(target_vec, prediction_vec, labels):
 
 
 def accuracies(true_positives, class_sums, false_positives):
+    print('true_positives length:' + str(true_positives))
     true_positives = true_positives.astype(np.float32)
     class_sums = class_sums.astype(np.float32)
     false_positives = false_positives.astype(np.float32)
@@ -36,13 +37,11 @@ def accuracies(true_positives, class_sums, false_positives):
     global_accuracy = np.sum(true_positives) / np.sum(class_sums)
 
     class_accuracies = true_positives/class_sums
-    print(class_accuracies)
-    class_mean_accuracy = np.mean(true_positives/class_sums)
 
-    mIoUs = (2 * true_positives)/(class_sums + false_positives + true_positives)
-    print(mIoUs)
-    mIoU = np.mean(mIoUs)
-    return global_accuracy, class_accuracies, class_mean_accuracy, mIoU
+    mIoUs = true_positives / (class_sums + false_positives)
+    # mIoUs = (2 * true_positives) / (class_sums + false_positives + true_positives)
+    # mIoU = np.nanmean(mIoUs)
+    return global_accuracy, class_accuracies, mIoUs
 
 
 def add_noise(img, low, high):

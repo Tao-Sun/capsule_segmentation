@@ -24,7 +24,7 @@ def conv2d(inputs, kernel, out_channels, stride, padding, name, data_format='NCH
 def deconv(inputs, kernel, out_channels, stride, name, padding='VALID', data_format='NHWC', activation_fn=None):
     with tf.variable_scope(name) as scope:
         deconv = tf.contrib.layers.conv2d_transpose(
-            inputs, num_outputs=out_channels, kernel_size=(kernel, kernel),
+            inputs, num_outputs=out_channels, kernel_size=kernel,
             stride=stride, padding=padding, data_format=data_format,
             scope=scope, activation_fn=activation_fn,
             weights_initializer=tf.truncated_normal_initializer(

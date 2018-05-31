@@ -57,7 +57,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=False, name='capsnet_1
         primary_out_capsules = 24
         primary_caps_activations, conv2 = primary_caps1d(
             conv1,
-            kernel_size=5, out_capsules=primary_out_capsules, stride=2,
+            kernel_size=3, out_capsules=primary_out_capsules, stride=2,
             padding='VALID', activation_length=8, name='primary_caps'
         )  # (b, 32, 4, 20, 8)
         # primary_caps_activations = tf.check_numerics(primary_caps_activations, message="nan or inf from: primary_caps_activations")
@@ -151,7 +151,7 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, 
 
     deconv2 = deconv(
         primary_conv,
-        kernel=6, out_channels=128, stride=2,
+        kernel=4, out_channels=128, stride=2,
         activation_fn=tf.nn.relu, name='deconv2'
     )
     print('deconv2 shape: %s' % deconv2.get_shape())
@@ -159,7 +159,7 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, 
     # deconv2 = tf.Print(deconv2, [tf.constant("deconv2"), deconv2])
     deconv2_conv = conv2d(
         concat2,
-        kernel=3, out_channels=128, stride=1, padding='SAME',
+        kernel=5, out_channels=128, stride=1, padding='SAME',
         activation_fn=tf.nn.relu, data_format='NHWC', name='deconv2_conv'
     )
     print('deconv2_conv shape: %s' % deconv2_conv.get_shape())
@@ -239,7 +239,7 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
 
             batch_margin_loss = tf.reduce_mean(margin_loss)
-            balanced_margin_loss = 2 * batch_margin_loss
+            balanced_margin_loss = 7 * batch_margin_loss
             # batch_margin_loss = tf.Print(batch_margin_loss, [batch_margin_loss])
             tf.add_to_collection('losses', balanced_margin_loss)
             tf.summary.scalar('margin_loss', balanced_margin_loss)

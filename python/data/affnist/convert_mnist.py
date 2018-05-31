@@ -62,7 +62,7 @@ def convert(images, labels, index, digits, occlusion):
                 label_class = index + 1
                 digit_nums[index] += 1
 
-                if occlusion & (index > 44):
+                if occlusion:
                     image[12:16, :] = 0
                 #cv2.imwrite(str(i) + "_.png", _add_noise(image, 1, max_noise_val))
                 max_noise_val = 5
@@ -149,7 +149,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--digits',
         type=list,
-        default=[0, 1, 2, 3, 4],
+        default=[0, 8],
         help='Digits to convert.'
     )
     parser.add_argument(

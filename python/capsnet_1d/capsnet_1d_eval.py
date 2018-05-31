@@ -6,8 +6,9 @@ import numpy as np
 import os
 import tensorflow as tf
 
-from python.capsnet_1d.capsnet_1d import inference
+from python.capsnet_1d.capsnet_pascal import inference
 from python.data.affnist import affnist_input
+from python.data.pascal import pascal_input
 from python.data.caltech import caltech_input
 from python.data.hippo import hippo_input
 from python.utils import accuracies
@@ -34,12 +35,16 @@ tf.app.flags.DEFINE_integer('file_end', 4,
                             """End file no.""")
 tf.app.flags.DEFINE_string('checkpoint_dir', '/tmp/cifar10_train',
                            """Directory where to read model checkpoints.""")
+tf.app.flags.DEFINE_string('checkpoint_file', None,
+                            """checkpoint file to load.""")
 tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 2,
                             """How often to run the eval.""")
 tf.app.flags.DEFINE_integer('num_examples', 10000,
                             """Number of examples to run.""")
 tf.app.flags.DEFINE_integer('num_gpus', 2,
                             """How many GPUs to use.""")
+tf.app.flags.DEFINE_integer('num_classes', 11,
+                            """How many classes to classify.""")
 tf.app.flags.DEFINE_boolean('run_once', False,
                             """Whether to run eval only once.""")
 tf.app.flags.DEFINE_string('split', 'validation',
@@ -60,7 +65,15 @@ def get_batched_features(batch_size):
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end)
+                                                file_end=FLAGS.file_end,
+                                                num_classes=FLAGS.num_classes)
+    elif FLAGS.dataset == 'pascal':
+        batched_features = pascal_input.inputs(FLAGS.split,
+                                               FLAGS.data_dir,
+                                               batch_size,
+                                               file_start=FLAGS.file_start,
+                                               file_end=FLAGS.file_end,
+                                               num_classes=FLAGS.num_classes)
     elif FLAGS.dataset == 'caltech':
         batched_features = caltech_input.inputs(FLAGS.split,
                                                 FLAGS.data_dir,
@@ -96,7 +109,7 @@ def _preprocess_affinist(num_classes, image_batch, target_batch, prediction_batc
             affnist_input.batch_eval(target_batch, prediction_batch, num_classes, FLAGS.error_block_size)
 
         for i in range(len(target_batch)):
-            if indices_batch[i] < 1000:
+            if indices_batch[i] < 3000:
                 affnist_input.save_files(FLAGS.data_dir, 'caps', indices_batch[i], image_batch[i],
                                          target_batch[i], prediction_batch[i], num_classes)
 
@@ -104,7 +117,22 @@ def _preprocess_affinist(num_classes, image_batch, target_batch, prediction_batc
             total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
             total_error_blocks[i] = np.concatenate((total_error_blocks[i], batch_error_blocks_num[i]))
             total_accu_stats += batch_accu_stats
-            # total_accuracies[i] = np.concatenate((total_accuracies[i], batch_accuracies[i]))
+
+
+def _preprocess_pascal(num_classes, image_batch, target_batch, prediction_batch, indices_batch,
+                         total_dices, total_error_blocks, total_accu_stats):
+    batch_dices, batch_accu_stats, batch_error_blocks_num = \
+        pascal_input.batch_eval(target_batch, prediction_batch, num_classes, FLAGS.error_block_size)
+
+    for i in range(len(target_batch)):
+        if indices_batch[i] < 3000:
+            pascal_input.save_files(FLAGS.data_dir, 'caps', indices_batch[i], image_batch[i],
+                                     target_batch[i], prediction_batch[i], num_classes)
+
+    for i in range(num_classes - 1):
+        total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
+        total_error_blocks[i] = np.concatenate((total_error_blocks[i], batch_error_blocks_num[i]))
+        total_accu_stats += batch_accu_stats
 
 
 def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, labels_op, summary_op, num_classes):
@@ -121,7 +149,11 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
         saver = tf.train.Saver(max_to_keep=1000)
-        ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+        if FLAGS.checkpoint_file is None:
+            ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+        else:
+            print('checkpoint file to find:' + FLAGS.checkpoint_file)
+            ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir, FLAGS.checkpoint_file)
         if ckpt and ckpt.model_checkpoint_path:
             # Restores from checkpoint
             print('checkpoint file: %s' % ckpt.model_checkpoint_path)
@@ -165,7 +197,7 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
                 group = 0
 
             while step < num_iter and not coord.should_stop():
-                if step % 10 == 0:
+                if step % 1 == 0:
                     print("step: %d" % step)
                 indices_batch, prediction_batch, image_batch, target_batch = \
                     sess.run([img_indices_op, inferred_labels_op, images_op, labels_op])
@@ -177,6 +209,9 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
 
                 elif FLAGS.dataset == 'affnist':
                     _preprocess_affinist(num_classes, image_batch, target_batch, prediction_batch,
+                                         indices_batch, total_dices, total_error_blocks, total_accu_stats)
+                elif FLAGS.dataset == 'pascal':
+                    _preprocess_pascal(num_classes, image_batch, target_batch, prediction_batch,
                                          indices_batch, total_dices, total_error_blocks, total_accu_stats)
                 # elif FLAGS.dataset == 'caltech':
                 #     batch_dices = caltech_input.batch_eval(indices_batch, target_batch, prediction_batch, num_classes)
@@ -190,7 +225,7 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
                 step += 1
 
             global_accuracy, class_accuracies, class_mean_accuracy, mIoU = \
-                accuracies(total_accu_stats[0], total_accu_stats[1], total_accu_stats[2])
+                accuracies(total_accu_stats[0][1:], total_accu_stats[1][1:], total_accu_stats[2][1:])
             print('\nglobal accuracy: %f' % global_accuracy)
             print('class mean accuracy: %f' % class_mean_accuracy)
             print('mIoU: %f\n' % mIoU)
@@ -198,19 +233,20 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
             global_error_blocks = []
 
             for i in range(num_classes - 1):
-                print("class: %d" % i)
+                print("class: %d" % (i + 1))
                 mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
                 mean_block_errors = np.mean(total_error_blocks[i])
                 total_block_errors = np.sum(total_error_blocks[i])
                 global_error_blocks.extend(total_error_blocks[i].tolist())
                 # mean_accu = np.mean(total_accuracies[i] )
+
+                print('accuracy: %f' % class_accuracies[i + 1])
                 print('mean dices:  %f' % mean_dices)
                 print('dices std: %f' % std_dices)
-                print('accuracy: %f' % class_accuracies[i+1])
                 print('total block errors:  %d' % total_block_errors)
                 print('mean block errors:  %.6f' % mean_block_errors)
 
-            print('\nmean error blocks:  %.6f' % np.mean(global_error_blocks))
+            print('\ntotal error blocks:  %.6f' % np.sum(global_error_blocks))
 
             summary = tf.Summary()
             summary.ParseFromString(sess.run(summary_op))
