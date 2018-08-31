@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 from six.moves import xrange  # pylint: disable=redefined-builtin
 
-from python.baseline.unet_pascal import inference, loss
+from python.baseline.unet_hippo import inference, loss
 from python.data.affnist import affnist_input
 from python.data.hippo import hippo_input
 from python.data.pascal import pascal_input
@@ -23,20 +23,25 @@ tf.app.flags.DEFINE_string('data_dir', '/tmp/',
 tf.flags.DEFINE_string('dataset', 'caltech',
                        'The dataset to use for the experiment.'
                        'hippo, affnist, caltech.')
-tf.app.flags.DEFINE_integer('batch_size', 20,
+tf.flags.DEFINE_string('optimizer', 'adam',
+                       'The optimizer to use for the experiment.'
+                       'sgd, adam.')
+tf.app.flags.DEFINE_integer('batch_size', 50,
                             """Batch size.""")
-tf.app.flags.DEFINE_integer('file_start', 0,
+tf.app.flags.DEFINE_integer('file_start', 1,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 11,
+tf.app.flags.DEFINE_integer('file_end', 110,
                             """End file no.""")
 tf.app.flags.DEFINE_integer('max_steps', 50000,
                             """Number of batches to run.""")
-tf.app.flags.DEFINE_integer('num_gpus', 2,
+tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
-tf.app.flags.DEFINE_integer('num_classes', 11,
+tf.app.flags.DEFINE_integer('num_classes', 2,
                             """How many classes to classify.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
+tf.app.flags.DEFINE_boolean('restore_sess', False,
+                            """Whether to restore from saver.""")
 
 
 def get_batched_features(batch_size):
@@ -141,21 +146,25 @@ def average_gradients(tower_grads):
 
 def train(hparams):
     """Train CIFAR-10 for a number of steps."""
-    with tf.Graph().as_default(), tf.device('/cpu:0'):
+    # with tf.Graph().as_default(), tf.device('/cpu:0'):
+    with tf.Graph().as_default():
         # Create a variable to count the number of train() calls. This equals the
         # number of batches processed * FLAGS.num_gpus.
         global_step = tf.get_variable(
             'global_step', [],
             initializer=tf.constant_initializer(0), trainable=False)
 
-        learning_rate = tf.train.exponential_decay(
-            learning_rate=hparams.learning_rate,
-            global_step=global_step,
-            decay_steps=hparams.decay_steps,
-            decay_rate=hparams.decay_rate)
-        learning_rate = tf.maximum(learning_rate, 1e-6)
-
-        optimizer = tf.train.AdamOptimizer(learning_rate)
+        if FLAGS.optimizer == 'adam':
+            learning_rate = tf.train.exponential_decay(
+                learning_rate=hparams.learning_rate,
+                global_step=global_step,
+                decay_steps=hparams.decay_steps,
+                decay_rate=hparams.decay_rate)
+            learning_rate = tf.maximum(learning_rate, 1e-8)
+            optimizer = tf.train.AdamOptimizer(learning_rate, epsilon=0.1)
+        elif FLAGS.optimizer == 'sgd':
+            learning_rate = tf.constant(hparams.learning_rate)
+            optimizer = tf.train.MomentumOptimizer(learning_rate, hparams.momentum)
 
         # Calculate the gradients for each model tower.
         with tf.variable_scope(tf.get_variable_scope()):
@@ -188,6 +197,7 @@ def train(hparams):
 
                         # Keep track of the gradients across all towers.
                         tower_grads.append(grads)
+
 
         # We must calculate the mean of each gradient. Note that this is the
         # synchronization point across all towers.
@@ -225,6 +235,12 @@ def train(hparams):
         # Build an initialization operation to run below.
         init = tf.global_variables_initializer()
 
+        # Print stats
+        param_stats = tf.contrib.tfprof.model_analyzer.print_model_analysis(
+            tf.get_default_graph(),
+            tfprof_options=tf.contrib.tfprof.model_analyzer.TRAINABLE_VARS_PARAMS_STAT_OPTIONS)
+        print('total_params: %d\n' % param_stats.total_parameters)
+
         # Start running operations on the Graph. allow_soft_placement must be set to
         # True to build towers on GPU, as some of the ops do not have GPU
         # implementations.
@@ -235,37 +251,46 @@ def train(hparams):
         sess = tf.Session(config=config)
         # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
         # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
-        sess.run(init)
+
+        if FLAGS.restore_sess:
+            ckpt = tf.train.get_checkpoint_state(FLAGS.summary_dir)
+            assert(ckpt and ckpt.model_checkpoint_path, 'No checkpoint file found')
+            # Restores from checkpoint
+            print('%s: checkpoint file: %s' % (datetime.now(), ckpt.model_checkpoint_path))
+            saver.restore(sess, ckpt.model_checkpoint_path)
+            # Assuming model_checkpoint_path looks something like:
+            #   /my-favorite-path/cifar10_train/model.ckpt-0,
+            # extract global_step from it.
+            restored_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
+            print("%s: restored from step: %s" % (datetime.now(), str(restored_step)))
+            start_step = int(restored_step) + 1
+        else:
+            start_step = 0
+            sess.run(init)
 
         # Start the queue runners.
         tf.train.start_queue_runners(sess=sess)
 
-        # Print stats
-        param_stats = tf.contrib.tfprof.model_analyzer.print_model_analysis(
-            tf.get_default_graph(),
-            tfprof_options=tf.contrib.tfprof.model_analyzer.
-                TRAINABLE_VARS_PARAMS_STAT_OPTIONS)
-        sys.stdout.write('total_params: %d\n' % param_stats.total_parameters)
-
         summary_writer = tf.summary.FileWriter(FLAGS.summary_dir, sess.graph)
 
-        for step in xrange(FLAGS.max_steps):
+        for step in range(start_step, FLAGS.max_steps):
             # format_str = ('\n%s: step %d')
             # print(format_str % (datetime.now(), step))
 
             start_time = time.time()
-            _, loss_value, lr_value = sess.run([train_op, loss, learning_rate])
-            duration = time.time() - start_time
+            if step % 100 != 0:
+                sess.run([train_op])
+            else:
+                _, loss_value, lr_value = sess.run([train_op, loss, learning_rate])
+                duration = time.time() - start_time
+                assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
-            assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
-
-            if step % 10 == 0:
                 num_examples_per_step = FLAGS.batch_size * FLAGS.num_gpus
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = duration / FLAGS.num_gpus
 
-                format_str = ('%s: step %d, loss = %.8f (%.1f examples/sec; %.3f '
-                              'sec/batch), learning_rate= %.8f')
+                format_str = ('%s: step %d, loss = %e (%.1f examples/sec; %.3f '
+                              'sec/batch), learning_rate = %e')
                 print(format_str % (datetime.now(), step, loss_value,
                                     examples_per_sec, sec_per_batch, lr_value))
 
@@ -274,7 +299,7 @@ def train(hparams):
                 summary_writer.add_summary(summary_str, step)
 
             # Save the model checkpoint periodically.
-            if step % 300 == 0 or (step + 1) == FLAGS.max_steps:
+            if step % 2000 == 0 or (step + 1) == FLAGS.max_steps:
                 checkpoint_path = os.path.join(FLAGS.summary_dir, 'model.ckpt')
                 saver.save(sess, checkpoint_path, global_step=step)
 
@@ -282,18 +307,21 @@ def train(hparams):
 def default_hparams():
     """Builds an HParam object with default hyperparameters."""
     return tf.contrib.training.HParams(
-        decay_rate=0.8,
-        decay_steps=500,
-        learning_rate=0.0005
+        decay_rate=0.96,
+        decay_steps=1000,
+        learning_rate=5e-4,
+        momentum=0.99
     )
 
 
 def main(argv=None):  # pylint: disable=unused-argument
     hparams = default_hparams()
 
-    if tf.gfile.Exists(FLAGS.summary_dir):
-        tf.gfile.DeleteRecursively(FLAGS.summary_dir)
-    tf.gfile.MakeDirs(FLAGS.summary_dir)
+    if FLAGS.restore_sess is False:
+        if tf.gfile.Exists(FLAGS.summary_dir):
+            print("Deleting existing summary files!!!\n")
+            tf.gfile.DeleteRecursively(FLAGS.summary_dir)
+        tf.gfile.MakeDirs(FLAGS.summary_dir)
     train(hparams)
 
 

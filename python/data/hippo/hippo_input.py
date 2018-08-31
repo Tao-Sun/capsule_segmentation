@@ -115,6 +115,7 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
             shuffle = True
         elif split == 'test':
             shuffle = False
+
         filename_queue = tf.train.string_input_producer(file_names, shuffle=shuffle)
 
         # Even when reading in multiple threads, share the filename

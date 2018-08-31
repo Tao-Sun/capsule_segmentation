@@ -7,8 +7,8 @@ import numpy as np
 import tensorflow as tf
 from six.moves import xrange  # pylint: disable=redefined-builtin
 
-from python.capsnet_1d.capsnet_pascal import inference
-from python.capsnet_1d.capsnet_1d import loss
+from python.capsnet_1d.capsnet_1d_hippo import inference
+from python.capsnet_1d.capsnet_1d_hippo import loss
 from python.data.affnist import affnist_input
 from python.data.hippo import hippo_input
 from python.data.pascal import pascal_input
@@ -25,15 +25,15 @@ tf.flags.DEFINE_string('dataset', 'caltech',
                        'hippo, affnist, caltech.')
 tf.app.flags.DEFINE_integer('batch_size', 20,
                             """Batch size.""")
-tf.app.flags.DEFINE_integer('file_start', 0,
+tf.app.flags.DEFINE_integer('file_start', 1,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 11,
+tf.app.flags.DEFINE_integer('file_end', 110,
                             """End file no.""")
 tf.app.flags.DEFINE_integer('max_steps', 50000,
                             """Number of batches to run.""")
-tf.app.flags.DEFINE_integer('num_gpus', 2,
+tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
-tf.app.flags.DEFINE_integer('num_classes', 11,
+tf.app.flags.DEFINE_integer('num_classes', 2,
                             """How many classes to classify.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
@@ -277,9 +277,9 @@ def train(hparams):
 def default_hparams():
     """Builds an HParam object with default hyperparameters."""
     return tf.contrib.training.HParams(
-        decay_rate=0.8,
-        decay_steps=800,
-        learning_rate=0.0005
+        decay_rate=0.96,
+        decay_steps=1000,
+        learning_rate=0.001
     )
 
 

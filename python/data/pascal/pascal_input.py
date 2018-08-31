@@ -52,7 +52,10 @@ def read_and_decode(filename_queue):
     # into a vector, we don't bother.
 
     # Convert from [0, 255] -> [-0.5, 0.5] floats.
-    image = tf.cast(image, tf.float32) * (1. / 255)
+    # image = tf.cast(image, tf.float32) * (1. / 255)
+    image = tf.cast(image, tf.float32)
+    mean = tf.constant([104.00698793, 116.66876762, 122.67891434], dtype=tf.float32, shape=[3, 1, 1], name='image_mean')
+    image = image - mean
     pixel_labels = tf.cast(pixel_labels, tf.int32)
 
     return index, image, pixel_labels, label_classes
@@ -115,14 +118,14 @@ def inputs(split, data_dir, batch_size, file_start, file_end, num_classes):
             # We run this in two threads to avoid being a bottleneck.
             batched_features = tf.train.shuffle_batch(
                 features, batch_size=batch_size, num_threads=2,
-                capacity=1000 + 3 * batch_size,
+                capacity=100 + 3 * batch_size,
                 # Ensures a minimum amount of shuffling of examples.
-                min_after_dequeue=1000)
+                min_after_dequeue=batch_size)
         elif split == 'test' or split == 'validation':
             batched_features = tf.train.batch(
                 features, batch_size=batch_size,
                 num_threads=2,
-                capacity=1000 + 3 * batch_size)
+                capacity=100 + 3 * batch_size)
 
         batched_features['num_classes'] = num_classes
 

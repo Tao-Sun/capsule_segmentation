@@ -142,7 +142,7 @@ def loss(labels2d, label_logits, num_classes):
         print('cross_entropy shape: %s' % weighted_losses.get_shape())
 
         batch_decode_loss = tf.reduce_mean(weighted_losses)
-        balanced_decode_loss = 5 * batch_decode_loss
+        balanced_decode_loss = batch_decode_loss
 
         tf.add_to_collection('losses', balanced_decode_loss)
         tf.summary.scalar('decode_loss', balanced_decode_loss)

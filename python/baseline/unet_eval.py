@@ -4,7 +4,7 @@ import time
 import numpy as np
 import tensorflow as tf
 
-from python.baseline.unet_pascal import inference
+from python.baseline.unet_hippo import inference
 from python.data.hippo import hippo_input
 from python.data.affnist import affnist_input
 from python.data.pascal import pascal_input
@@ -27,9 +27,9 @@ tf.app.flags.DEFINE_integer('batch_size', 24,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('subject_size', 48,
                             """How many batches constitute a subject.""")
-tf.app.flags.DEFINE_integer('file_start', 0,
+tf.app.flags.DEFINE_integer('file_start', 1,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 4,
+tf.app.flags.DEFINE_integer('file_end', 110,
                             """End file no.""")
 tf.app.flags.DEFINE_string('checkpoint_dir', '/tmp/cifar10_train',
                            """Directory where to read model checkpoints.""")
@@ -37,7 +37,7 @@ tf.app.flags.DEFINE_string('checkpoint_file', None,
                             """checkpoint file to load.""")
 tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 2,
                             """How often to run the eval.""")
-tf.app.flags.DEFINE_integer('num_examples', 10000,
+tf.app.flags.DEFINE_integer('num_examples', 576,
                             """Number of examples to run.""")
 tf.app.flags.DEFINE_integer('num_gpus', 2,
                             """How many GPUs to use.""")
@@ -218,23 +218,23 @@ def eval_once(summary_writer, img_indices_op, images_op, inferred_labels_op, lab
             # global_accuracy, class_accuracies, class_mean_accuracy, mIoU = \
             #     accuracies(np.concatenate((a1, a2, a3)), np.concatenate((b1, b2, b3)), np.concatenate((c1, c2, c3)))
 
-            global_accuracy, class_accuracies, mIoUs = \
-                accuracies(total_accu_stats[0], total_accu_stats[1], total_accu_stats[2])
-            print('\nglobal accuracy: %f' % global_accuracy)
-            print('mean accuracy: %f' % np.nanmean(class_accuracies))
-            print('mIoU: %f\n' % np.nanmean(mIoUs))
+            # global_accuracy, class_accuracies, mIoUs = \
+            #     accuracies(total_accu_stats[0], total_accu_stats[1], total_accu_stats[2])
+            # print('\nglobal accuracy: %f' % global_accuracy)
+            # print('mean accuracy: %f' % np.nanmean(class_accuracies))
+            # print('mIoU: %f\n' % np.nanmean(mIoUs))
 
             global_error_blocks= []
             for i in range(1, num_classes):
-                # print("class: %d" % i)
-                # mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
+                print("class: %d" % i)
+                mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
                 # mean_block_errors = np.mean(total_error_blocks[i])
                 # total_block_errors = np.sum(total_error_blocks[i])
                 # global_error_blocks.extend(total_error_blocks[i].tolist())
 
-                print('class: %d, accuracy: %f, IoU: %f' % (i, class_accuracies[i], mIoUs[i]))
-                # print('mean dices:  %f' % mean_dices)
-                # print('dices std: %f' % std_dices)
+                # print('class: %d, accuracy: %f, IoU: %f' % (i, class_accuracies[i], mIoUs[i]))
+                print('mean dices:  %f' % mean_dices)
+                print('dices std: %f' % std_dices)
                 # print('total block errors:  %f' % total_block_errors)
                 # print('mean block errors:  %f' % mean_block_errors)
                 # print('\nmean accuracies:  %f' % mean_accu)

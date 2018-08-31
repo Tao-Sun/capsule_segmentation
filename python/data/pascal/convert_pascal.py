@@ -41,6 +41,7 @@ def _int64_features(values):
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
+
 def _generate_mask(file_name):
     color_mask = cv2.imread(file_name, cv2.IMREAD_COLOR)
     b, g, r = cv2.split(color_mask)
@@ -124,6 +125,8 @@ def main(unused_argv):
 
             images.append(image)
             labels.append(label)
+            cv2.imwrite(os.path.join(FLAGS.dest, file_suffix + '.png'), image)
+            cv2.imwrite(os.path.join(FLAGS.dest, file_suffix + '_l.png'), label * 10)
 
             i += 1
             if len(images) == FLAGS.file_size:

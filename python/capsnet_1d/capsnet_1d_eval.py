@@ -6,7 +6,7 @@ import numpy as np
 import os
 import tensorflow as tf
 
-from python.capsnet_1d.capsnet_pascal import inference
+from python.capsnet_1d.capsnet_1d_hippo import inference
 from python.data.affnist import affnist_input
 from python.data.pascal import pascal_input
 from python.data.caltech import caltech_input
@@ -29,9 +29,9 @@ tf.app.flags.DEFINE_integer('batch_size', 24,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('subject_size', 48,
                             """How many batches constitute a subject.""")
-tf.app.flags.DEFINE_integer('file_start', 0,
+tf.app.flags.DEFINE_integer('file_start', 1,
                             """Start file no.""")
-tf.app.flags.DEFINE_integer('file_end', 4,
+tf.app.flags.DEFINE_integer('file_end', 110,
                             """End file no.""")
 tf.app.flags.DEFINE_string('checkpoint_dir', '/tmp/cifar10_train',
                            """Directory where to read model checkpoints.""")
@@ -39,15 +39,15 @@ tf.app.flags.DEFINE_string('checkpoint_file', None,
                             """checkpoint file to load.""")
 tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 2,
                             """How often to run the eval.""")
-tf.app.flags.DEFINE_integer('num_examples', 10000,
+tf.app.flags.DEFINE_integer('num_examples', 576,
                             """Number of examples to run.""")
-tf.app.flags.DEFINE_integer('num_gpus', 2,
+tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
-tf.app.flags.DEFINE_integer('num_classes', 11,
+tf.app.flags.DEFINE_integer('num_classes', 2,
                             """How many classes to classify.""")
 tf.app.flags.DEFINE_boolean('run_once', False,
                             """Whether to run eval only once.""")
-tf.app.flags.DEFINE_string('split', 'validation',
+tf.app.flags.DEFINE_string('split', 'test',
                             """validation or test, split to evaluate.""")
 tf.app.flags.DEFINE_integer('error_block_size', 20,
                             """size of error blocks.""")
@@ -224,11 +224,11 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
 
                 step += 1
 
-            global_accuracy, class_accuracies, class_mean_accuracy, mIoU = \
-                accuracies(total_accu_stats[0][1:], total_accu_stats[1][1:], total_accu_stats[2][1:])
-            print('\nglobal accuracy: %f' % global_accuracy)
-            print('class mean accuracy: %f' % class_mean_accuracy)
-            print('mIoU: %f\n' % mIoU)
+            # global_accuracy, class_accuracies, class_mean_accuracy, mIoU = \
+            #     accuracies(total_accu_stats[0][1:], total_accu_stats[1][1:], total_accu_stats[2][1:])
+            # print('\nglobal accuracy: %f' % global_accuracy)
+            # print('class mean accuracy: %f' % class_mean_accuracy)
+            # print('mIoU: %f\n' % mIoU)
 
             global_error_blocks = []
 
@@ -237,10 +237,10 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
                 mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
                 mean_block_errors = np.mean(total_error_blocks[i])
                 total_block_errors = np.sum(total_error_blocks[i])
-                global_error_blocks.extend(total_error_blocks[i].tolist())
+                global_error_blocks.extend(total_error_blocks[i])
                 # mean_accu = np.mean(total_accuracies[i] )
 
-                print('accuracy: %f' % class_accuracies[i + 1])
+                # print('accuracy: %f' % class_accuracies[i + 1])
                 print('mean dices:  %f' % mean_dices)
                 print('dices std: %f' % std_dices)
                 print('total block errors:  %d' % total_block_errors)

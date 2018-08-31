@@ -28,7 +28,7 @@ def inference(inputs, num_classes, name='unet'):
         # )
         conv3 = conv2d(
             conv2,
-            kernel=3, out_channels=128, stride=2, padding='VALID',
+            kernel=3, out_channels=256, stride=2, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv3'
         )
         print('conv3 shape: %s' % conv3.get_shape())

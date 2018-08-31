@@ -24,12 +24,13 @@ def inference(inputs, num_classes, feature_scale=2, training=True, name='unet'):
         print('pool3 shape: %s\n' % (pool3.get_shape()))
         combine_conv4_1 = _combine_conv(pool3, '4_1', training, out_channels=filters[3])
         combine_conv4_2 = _combine_conv(combine_conv4_1, '4_2', training, out_channels=filters[3])
+        # combine_conv4_2 = tf.nn.dropout(combine_conv4_2, 0.5)
         pool4 = tf.layers.max_pooling2d(inputs=combine_conv4_2, pool_size=[2, 2], strides=[2, 2],
                                         data_format="channels_first", name='pool4')
-        pool4 = tf.nn.dropout(pool4, 0.5)
         print('pool4 shape: %s\n' % (pool4.get_shape()))
 
         center = _combine_conv(pool4, '5', training, out_channels=filters[4])
+        # center = tf.nn.dropout(center, 0.5)
 
         combine_deconv4 = _combine_deconv(center, '4', training, combine_conv4_2,
                                           deconv_out_channels=filters[3])
@@ -38,7 +39,7 @@ def inference(inputs, num_classes, feature_scale=2, training=True, name='unet'):
         combine_deconv2 = _combine_deconv(combine_deconv3, '2', training, combine_conv2_2,
                                           deconv_out_channels=filters[1])
         combine_deconv1 = _combine_deconv(combine_deconv2, '1', training, combine_conv1_2,
-                                          deconv_out_channels=filters[0])\
+                                          deconv_out_channels=filters[0])
 
         final_deconv = deconv(
             combine_deconv1,
@@ -115,7 +116,6 @@ def _combine_deconv(inputs, layer, training, conv_concat, deconv_out_channels):
         print('deconv layer shape to be concatenated: %s' % (deconv1.get_shape()))
         concat = tf.concat([conv_concat, deconv1],
                             axis=1, name='concat' + layer)
-        concat = tf.nn.dropout(concat, 0.5)
     else:
         concat = deconv1
 
