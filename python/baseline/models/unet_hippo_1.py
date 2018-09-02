@@ -6,7 +6,7 @@ import python.data.hippo.hippo_input as hippo_input
 
 data_input = hippo_input
 
-def inference(inputs, num_classes, name='unet'):
+def inference(inputs, num_classes, training=False, name='unet'):
     with tf.variable_scope(name) as scope:
         conv1 = conv2d(
             inputs,
@@ -50,7 +50,7 @@ def inference(inputs, num_classes, name='unet'):
         )
         print('pool3 shape: %s' % pool3.get_shape())
 
-        pool3_dropout = tf.nn.dropout(pool3, 0.5, name='pool3_dropout')
+        pool3_dropout = tf.layers.dropout(pool3, 0.5, training=training, name='pool3_dropout')
 
         deconv1 = deconv(
             pool3_dropout,
@@ -67,7 +67,7 @@ def inference(inputs, num_classes, name='unet'):
         )
         print('deconv1_conv shape: %s' % deconv1_conv.get_shape())
         concat1 = tf.concat([pool2, deconv1_conv], axis=1, name='concat1')
-        dropout1 = tf.nn.dropout(concat1, 0.5, name='dropout1')
+        dropout1 = tf.layers.dropout(concat1, 0.5, training=training, name='dropout1')
         concat1_conv = conv2d(
             dropout1,
             kernel=3, out_channels=128, stride=1, padding='SAME',
@@ -91,7 +91,7 @@ def inference(inputs, num_classes, name='unet'):
         )
         print('deconv2_conv shape: %s' % deconv2_conv.get_shape())
         concat2 = tf.concat([pool1, deconv2_conv], axis=1, name='concat2')
-        dropout2 = tf.nn.dropout(concat2, 0.5, name='dropout2')
+        dropout2 = tf.layers.dropout(concat2, 0.5, training=training, name='dropout2')
         concat2_conv = conv2d(
             dropout2,
             kernel=3, out_channels=128, stride=1, padding='SAME',

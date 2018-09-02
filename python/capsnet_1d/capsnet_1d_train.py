@@ -59,7 +59,7 @@ def tower_loss(model, scope, images, labels2d, label_class, num_classes):
     """
 
     # Build inference Graph.
-    class_caps_activations, remakes_flatten, label_logits = model.inference(images, num_classes)
+    class_caps_activations, remakes_flatten, label_logits = model.inference(images, num_classes, training=True)
 
     # Build the portion of the Graph calculating the losses. Note that we will
     # assemble the total_loss using a custom function below.
