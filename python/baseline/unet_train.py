@@ -7,32 +7,30 @@ import numpy as np
 import tensorflow as tf
 from six.moves import xrange  # pylint: disable=redefined-builtin
 
-from python.baseline.unet_hippo import inference, loss
-from python.data.affnist import affnist_input
-from python.data.hippo import hippo_input
-from python.data.pascal import pascal_input
-from python.data.caltech import caltech_input
+from model_loader import get_model
 
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('summary_dir', '/tmp/',
                            """Directory where to write event logs """
                            """and checkpoint.""")
+tf.app.flags.DEFINE_string('model', 'hippo',
+                           """Model to load """)
 tf.app.flags.DEFINE_string('data_dir', '/tmp/',
                            """Directory where to read input data """)
 tf.flags.DEFINE_string('dataset', 'caltech',
                        'The dataset to use for the experiment.'
                        'hippo, affnist, caltech.')
-tf.flags.DEFINE_string('optimizer', 'adam',
+tf.flags.DEFINE_string('optimizer', 'sgd',
                        'The optimizer to use for the experiment.'
                        'sgd, adam.')
-tf.app.flags.DEFINE_integer('batch_size', 50,
+tf.app.flags.DEFINE_integer('batch_size', 20,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('file_start', 1,
                             """Start file no.""")
 tf.app.flags.DEFINE_integer('file_end', 110,
                             """End file no.""")
-tf.app.flags.DEFINE_integer('max_steps', 50000,
+tf.app.flags.DEFINE_integer('max_steps', 200000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
@@ -44,39 +42,18 @@ tf.app.flags.DEFINE_boolean('restore_sess', False,
                             """Whether to restore from saver.""")
 
 
-def get_batched_features(batch_size):
-    batched_features = None
-    if FLAGS.dataset == 'hippo':
-        batched_features = hippo_input.inputs('train',
-                                              FLAGS.data_dir,
-                                              batch_size,
-                                              file_start=FLAGS.file_start,
-                                              file_end=FLAGS.file_end)
-    elif FLAGS.dataset == 'affnist':
-        batched_features = affnist_input.inputs('train',
-                                                FLAGS.data_dir,
-                                                batch_size,
-                                                file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end,
-                                                num_classes=FLAGS.num_classes)
-    elif FLAGS.dataset == 'pascal':
-        batched_features = pascal_input.inputs('train',
-                                                FLAGS.data_dir,
-                                                batch_size,
-                                                file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end,
-                                                num_classes=FLAGS.num_classes)
-    elif FLAGS.dataset == 'caltech':
-        batched_features = caltech_input.inputs('train',
+def get_batched_features(model, batch_size):
+    batched_features = model.data_input.inputs('train',
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
                                                 file_end=FLAGS.file_end)
 
+
     return batched_features
 
 
-def tower_loss(scope, images, labels2d, num_classes):
+def tower_loss(model, scope, images, labels2d, num_classes):
     """Calculate the total loss on a single tower running the CIFAR model.
 
     Args:
@@ -89,11 +66,11 @@ def tower_loss(scope, images, labels2d, num_classes):
     """
 
     # Build inference Graph.
-    label_logits = inference(images, num_classes)
+    label_logits = model.inference(images, num_classes)
 
     # Build the portion of the Graph calculating the losses. Note that we will
     # assemble the total_loss using a custom function below.
-    _ = loss(labels2d, label_logits, num_classes)
+    _ = model.loss(labels2d, label_logits, num_classes)
 
     # Assemble all of the losses for the current tower only.
     losses = tf.get_collection('losses', scope)
@@ -144,9 +121,10 @@ def average_gradients(tower_grads):
     return average_grads
 
 
-def train(hparams):
+def train(model):
     """Train CIFAR-10 for a number of steps."""
     # with tf.Graph().as_default(), tf.device('/cpu:0'):
+    hparams = model.default_hparams()
     with tf.Graph().as_default():
         # Create a variable to count the number of train() calls. This equals the
         # number of batches processed * FLAGS.num_gpus.
@@ -173,7 +151,7 @@ def train(hparams):
                 with tf.device('/gpu:%d' % i):
                     with tf.name_scope('tower_%d' % i) as scope:
                         batch_size = FLAGS.batch_size // max(1, FLAGS.num_gpus)
-                        batched_features = get_batched_features(batch_size)
+                        batched_features = get_batched_features(model, batch_size)
 
                         image_batch = batched_features['images']
                         label_batch = batched_features['pixel_labels']
@@ -184,7 +162,7 @@ def train(hparams):
                         # Calculate the loss for one tower of the CIFAR model. This function
                         # constructs the entire CIFAR model but shares the variables across
                         # all towers.
-                        loss = tower_loss(scope, image_batch, label_batch, num_classes)
+                        loss = tower_loss(model, scope, image_batch, label_batch, num_classes)
 
                         # Reuse variables for the next tower.
                         tf.get_variable_scope().reuse_variables()
@@ -299,30 +277,20 @@ def train(hparams):
                 summary_writer.add_summary(summary_str, step)
 
             # Save the model checkpoint periodically.
-            if step % 2000 == 0 or (step + 1) == FLAGS.max_steps:
+            if step % 300 == 0 or (step + 1) == FLAGS.max_steps:
                 checkpoint_path = os.path.join(FLAGS.summary_dir, 'model.ckpt')
                 saver.save(sess, checkpoint_path, global_step=step)
 
 
-def default_hparams():
-    """Builds an HParam object with default hyperparameters."""
-    return tf.contrib.training.HParams(
-        decay_rate=0.96,
-        decay_steps=1000,
-        learning_rate=5e-4,
-        momentum=0.99
-    )
-
-
 def main(argv=None):  # pylint: disable=unused-argument
-    hparams = default_hparams()
+    model = get_model(FLAGS.model)
 
     if FLAGS.restore_sess is False:
         if tf.gfile.Exists(FLAGS.summary_dir):
             print("Deleting existing summary files!!!\n")
             tf.gfile.DeleteRecursively(FLAGS.summary_dir)
         tf.gfile.MakeDirs(FLAGS.summary_dir)
-    train(hparams)
+    train(model)
 
 
 if __name__ == '__main__':

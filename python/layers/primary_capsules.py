@@ -22,7 +22,8 @@ def primary_caps1d(inputs, kernel_size, out_capsules, stride, padding, activatio
             inputs,
             kernel=kernel_size, out_channels=out_capsules * activation_length,
             stride=stride, padding=padding, name='primary_caps_conv'
-        ) # (b, 256, 16, 48) -> (b, 256, 4, 20)
+        ) # (b, 256, 16, 48) -> (b, 256, 4, 20)]
+        print('primary conv shape: %s' % conv.get_shape())
 
         conv_shape = conv.get_shape()
         conv_height, conv_width = conv_shape[2].value, conv_shape[3].value

@@ -6,11 +6,7 @@ import numpy as np
 import os
 import tensorflow as tf
 
-from python.capsnet_1d.capsnet_1d_hippo import inference
-from python.data.affnist import affnist_input
-from python.data.pascal import pascal_input
-from python.data.caltech import caltech_input
-from python.data.hippo import hippo_input
+from model_loader import get_model
 from python.utils import accuracies
 
 FLAGS = tf.app.flags.FLAGS
@@ -18,6 +14,8 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('summary_dir', '/tmp/hippo',
                            """Directory where to write event logs """
                            """and checkpoint.""")
+tf.app.flags.DEFINE_string('model', 'hippo',
+                           """Model to load """)
 tf.app.flags.DEFINE_string('data_dir', '/tmp/',
                            """Directory where to read input data """)
 tf.app.flags.DEFINE_string('eval_data', 'test',
@@ -37,7 +35,7 @@ tf.app.flags.DEFINE_string('checkpoint_dir', '/tmp/cifar10_train',
                            """Directory where to read model checkpoints.""")
 tf.app.flags.DEFINE_string('checkpoint_file', None,
                             """checkpoint file to load.""")
-tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 2,
+tf.app.flags.DEFINE_integer('eval_interval_secs', 60,
                             """How often to run the eval.""")
 tf.app.flags.DEFINE_integer('num_examples', 576,
                             """Number of examples to run.""")
@@ -52,38 +50,17 @@ tf.app.flags.DEFINE_string('split', 'test',
 tf.app.flags.DEFINE_integer('error_block_size', 20,
                             """size of error blocks.""")
 
-def get_batched_features(batch_size):
-    batched_features = None
-    if FLAGS.dataset == 'hippo':
-        batched_features = hippo_input.inputs(FLAGS.split,
-                                              FLAGS.data_dir,
-                                              batch_size,
-                                              file_start=FLAGS.file_start,
-                                              file_end=FLAGS.file_end)
-    elif FLAGS.dataset == 'affnist':
-        batched_features = affnist_input.inputs(FLAGS.split,
-                                                FLAGS.data_dir,
-                                                batch_size,
-                                                file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end,
-                                                num_classes=FLAGS.num_classes)
-    elif FLAGS.dataset == 'pascal':
-        batched_features = pascal_input.inputs(FLAGS.split,
+
+def get_batched_features(model, batch_size):
+    batched_features = model.data_input.inputs(FLAGS.split,
                                                FLAGS.data_dir,
                                                batch_size,
                                                file_start=FLAGS.file_start,
-                                               file_end=FLAGS.file_end,
-                                               num_classes=FLAGS.num_classes)
-    elif FLAGS.dataset == 'caltech':
-        batched_features = caltech_input.inputs(FLAGS.split,
-                                                FLAGS.data_dir,
-                                                batch_size,
-                                                file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end)
-
+                                               file_end=FLAGS.file_end)
     return batched_features
 
-def _preprocess_hippo(step, prediction_batches, target_batches, target_batch, prediction_batch, total_dices, group, group_size):
+
+def _preprocess_hippo(model, step, prediction_batches, target_batches, target_batch, prediction_batch, total_dices, group, group_size):
     prediction_batches.append(prediction_batch)
     target_batches.append(target_batch)
 
@@ -92,11 +69,11 @@ def _preprocess_hippo(step, prediction_batches, target_batches, target_batch, pr
 
         prediction_subject = np.vstack(prediction_batches)
         target_subject = np.vstack(target_batches)
-        subject_dice_0, subject_dice_1 = hippo_input.subject_dice(target_subject, prediction_subject)
-        print("subject_dices: %f, %f" % (subject_dice_0, subject_dice_1))
-        total_dices[0].append(subject_dice_0)
+        subject_dice = model.data_input.subject_dice(target_subject, prediction_subject)
+        print("subject_dices: %f" % (subject_dice))
+        total_dices[0].append(subject_dice)
 
-        hippo_input.save_nii(target_subject, prediction_subject, FLAGS.data_dir, group)
+        model.data_input.save_nii(target_subject, prediction_subject, FLAGS.data_dir, group)
 
         prediction_batches = []
         target_batches = []
@@ -104,13 +81,13 @@ def _preprocess_hippo(step, prediction_batches, target_batches, target_batch, pr
     return prediction_batches, target_batches, group
 
 
-def _preprocess_affinist(num_classes, image_batch, target_batch, prediction_batch, indices_batch, total_dices, total_error_blocks, total_accu_stats):
+def _preprocess_affinist(model, num_classes, image_batch, target_batch, prediction_batch, indices_batch, total_dices, total_error_blocks, total_accu_stats):
         batch_dices, batch_accu_stats, batch_error_blocks_num = \
-            affnist_input.batch_eval(target_batch, prediction_batch, num_classes, FLAGS.error_block_size)
+            model.data_input.batch_eval(target_batch, prediction_batch, num_classes, FLAGS.error_block_size)
 
         for i in range(len(target_batch)):
             if indices_batch[i] < 3000:
-                affnist_input.save_files(FLAGS.data_dir, 'caps', indices_batch[i], image_batch[i],
+                model.data_input.save_files(FLAGS.data_dir, 'caps', indices_batch[i], image_batch[i],
                                          target_batch[i], prediction_batch[i], num_classes)
 
         for i in range(num_classes - 1):
@@ -119,14 +96,14 @@ def _preprocess_affinist(num_classes, image_batch, target_batch, prediction_batc
             total_accu_stats += batch_accu_stats
 
 
-def _preprocess_pascal(num_classes, image_batch, target_batch, prediction_batch, indices_batch,
+def _preprocess_pascal(model, num_classes, image_batch, target_batch, prediction_batch, indices_batch,
                          total_dices, total_error_blocks, total_accu_stats):
     batch_dices, batch_accu_stats, batch_error_blocks_num = \
-        pascal_input.batch_eval(target_batch, prediction_batch, num_classes, FLAGS.error_block_size)
+        model.data_input.batch_eval(target_batch, prediction_batch, num_classes, FLAGS.error_block_size)
 
     for i in range(len(target_batch)):
         if indices_batch[i] < 3000:
-            pascal_input.save_files(FLAGS.data_dir, 'caps', indices_batch[i], image_batch[i],
+            model.data_input.save_files(FLAGS.data_dir, 'caps', indices_batch[i], image_batch[i],
                                      target_batch[i], prediction_batch[i], num_classes)
 
     for i in range(num_classes - 1):
@@ -135,7 +112,7 @@ def _preprocess_pascal(num_classes, image_batch, target_batch, prediction_batch,
         total_accu_stats += batch_accu_stats
 
 
-def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, labels_op, summary_op, num_classes):
+def eval_once(model, summary_writer, img_indices_op, inferred_labels_op, images_op, labels_op, summary_op, num_classes):
     """Run Eval once.
 
     Args:
@@ -204,14 +181,14 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
 
                 if FLAGS.dataset == "hippo":
                     prediction_batches, target_batches, group= \
-                        _preprocess_hippo(step, prediction_batches, target_batches,
+                        _preprocess_hippo(model, step, prediction_batches, target_batches,
                                           target_batch, prediction_batch, total_dices, group, group_size)
 
                 elif FLAGS.dataset == 'affnist':
-                    _preprocess_affinist(num_classes, image_batch, target_batch, prediction_batch,
+                    _preprocess_affinist(model, num_classes, image_batch, target_batch, prediction_batch,
                                          indices_batch, total_dices, total_error_blocks, total_accu_stats)
                 elif FLAGS.dataset == 'pascal':
-                    _preprocess_pascal(num_classes, image_batch, target_batch, prediction_batch,
+                    _preprocess_pascal(model, num_classes, image_batch, target_batch, prediction_batch,
                                          indices_batch, total_dices, total_error_blocks, total_accu_stats)
                 # elif FLAGS.dataset == 'caltech':
                 #     batch_dices = caltech_input.batch_eval(indices_batch, target_batch, prediction_batch, num_classes)
@@ -262,11 +239,11 @@ def eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, lab
         coord.join(threads, stop_grace_period_secs=10)
 
 
-def evaluate():
+def evaluate(model):
     """Eval CIFAR-10 for a number of steps."""
     with tf.Graph().as_default() as g:
         # Get images and labels for CIFAR-10.
-        batched_features = get_batched_features(FLAGS.batch_size)
+        batched_features = get_batched_features(model, FLAGS.batch_size)
 
         img_indices = batched_features['indices']
         images, labels = batched_features['images'], batched_features['pixel_labels']
@@ -279,7 +256,7 @@ def evaluate():
 
         # Build a Graph that computes the logits predictions from the
         # inference model.
-        class_caps_activations, remakes_flatten, label_logits = inference(images_op, num_classes)
+        class_caps_activations, remakes_flatten, label_logits = model.inference(images_op, num_classes)
         inferred_labels_op = tf.argmax(label_logits, axis=3)
 
         # Restore the moving average version of the learned variables for eval.
@@ -294,17 +271,19 @@ def evaluate():
         summary_writer = tf.summary.FileWriter(FLAGS.summary_dir, g)
 
         while True:
-            eval_once(summary_writer, img_indices_op, inferred_labels_op, images_op, labels_op, summary_op, num_classes)
+            eval_once(model, summary_writer, img_indices_op, inferred_labels_op, images_op, labels_op, summary_op, num_classes)
             if FLAGS.run_once:
                 break
             time.sleep(FLAGS.eval_interval_secs)
 
 
 def main(argv=None):  # pylint: disable=unused-argument
+    model = get_model(FLAGS.model)
+
     if tf.gfile.Exists(FLAGS.summary_dir):
         tf.gfile.DeleteRecursively(FLAGS.summary_dir)
     tf.gfile.MakeDirs(FLAGS.summary_dir)
-    evaluate()
+    evaluate(model)
 
 
 if __name__ == '__main__':

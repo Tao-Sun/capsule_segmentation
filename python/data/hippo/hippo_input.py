@@ -35,6 +35,7 @@ import nibabel as nib
 import numpy as np
 import skimage.io as io
 import tensorflow as tf
+from python.utils import dice_ratio
 
 NUM_CLASSES = 2
 
@@ -151,39 +152,41 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
 
 
 def subject_dice(target_subject, prediction_subject):
-    subject_intersection_0 = 0.0
-    subject_union_0 = 0.0
-    subject_intersection_1 = 0.0
-    subject_union_1 = 0.0
-    for i in range(target_subject.shape[0]):
-        # print("targets[i] shape" + str(targets[i].shape))
-        # print("predictions[i] shape" + str(predictions[i].shape))
-        target_0 = target_subject[i].flatten()
-        prediction_0 = prediction_subject[i].flatten()
-        # print(target_0[1:100])
-        # print(prediction_0[1:100])
-        intersection_0 = np.sum(np.multiply(target_0, prediction_0))
-        subject_intersection_0 += intersection_0
-        union_0 = np.sum(target_0) + np.sum(prediction_0)
-        subject_union_0 += union_0
-
-        target_1 = 1 - target_0
-        # print(target_1[1:100])
-        prediction_1 = 1 - prediction_0
-        # print(prediction_1[1:100])
-        intersection_1 = np.sum(np.multiply(target_1, prediction_1))
-        subject_intersection_1 += intersection_1
-        # print("positive_target_indices shape:" + str(positive_target_indices))
-        # print("positive_pred_indices shape:" + str(positive_pred_indices))
-
-        union_1 = np.sum(target_1) + np.sum(prediction_1)
-        subject_union_1 += union_1
-
-    smooth= 1.0
-    batch_dice_0 = (2.0 * subject_intersection_0 + smooth) / (subject_union_0 + smooth)
-    batch_dice_1 = (2.0 * subject_intersection_1 + smooth) / (subject_union_1 + smooth)
-
-    return batch_dice_0, batch_dice_1
+    # print(target_subject.shape)
+    # print(prediction_subject.shape)
+    # subject_intersection_0 = 0.0
+    # subject_union_0 = 0.0
+    # subject_intersection_1 = 0.0
+    # subject_union_1 = 0.0
+    # for i in range(target_subject.shape[0]):
+    #     # print("targets[i] shape" + str(targets[i].shape))
+    #     # print("predictions[i] shape" + str(predictions[i].shape))
+    #     target_0 = target_subject[i].flatten()
+    #     prediction_0 = prediction_subject[i].flatten()
+    #     # print(target_0[1:100])
+    #     # print(prediction_0[1:100])
+    #     intersection_0 = np.sum(np.multiply(target_0, prediction_0))
+    #     subject_intersection_0 += intersection_0
+    #     union_0 = np.sum(target_0) + np.sum(prediction_0)
+    #     subject_union_0 += union_0
+    #
+    #     target_1 = 1 - target_0
+    #     # print(target_1[1:100])
+    #     prediction_1 = 1 - prediction_0
+    #     # print(prediction_1[1:100])
+    #     intersection_1 = np.sum(np.multiply(target_1, prediction_1))
+    #     subject_intersection_1 += intersection_1
+    #     # print("positive_target_indices shape:" + str(positive_target_indices))
+    #     # print("positive_pred_indices shape:" + str(positive_pred_indices))
+    #
+    #     union_1 = np.sum(target_1) + np.sum(prediction_1)
+    #     subject_union_1 += union_1
+    #
+    # smooth= 1.0e-9
+    # batch_dice_0 = (2.0 * subject_intersection_0 + smooth) / (subject_union_0 + smooth)
+    # batch_dice_1 = (2.0 * subject_intersection_1 + smooth) / (subject_union_1 + smooth)
+    _, dice = dice_ratio(target_subject, prediction_subject)
+    return dice
 
 
 def save_nii(target, prediction, save_dir, file_no):

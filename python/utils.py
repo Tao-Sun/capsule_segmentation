@@ -12,6 +12,27 @@ def dice(target_img, prediction_img, smooth=1.0):
 
     return dice
 
+def get_confusion_matrix(target, prediction):
+    labels = np.unique(target)
+    confusion_mat = confusion_matrix(target.flatten(),
+                                     prediction.flatten(),
+                                     labels=labels)
+    return confusion_mat
+
+
+def dice_ratio(target, prediction):
+    confusion_mat = get_confusion_matrix(target, prediction)
+    true_positives = np.float64(confusion_mat.diagonal())
+
+    class_actual_sums = np.sum(confusion_mat, axis=1)
+    false_negative = class_actual_sums - true_positives
+
+    class_predicted_sums = np.sum(confusion_mat, axis=0)
+    false_positive = class_predicted_sums - true_positives
+
+    dice_ratio = (2*true_positives) / (2*true_positives + false_negative + false_positive)
+    return dice_ratio
+
 
 def accuracy_stats(target_vec, prediction_vec, labels):
     val = []

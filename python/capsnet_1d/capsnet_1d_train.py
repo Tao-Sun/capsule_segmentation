@@ -7,17 +7,15 @@ import numpy as np
 import tensorflow as tf
 from six.moves import xrange  # pylint: disable=redefined-builtin
 
-from python.capsnet_1d.capsnet_1d_hippo import inference
-from python.capsnet_1d.capsnet_1d_hippo import loss
-from python.data.affnist import affnist_input
-from python.data.hippo import hippo_input
-from python.data.pascal import pascal_input
+from model_loader import get_model
 
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('summary_dir', '/tmp/',
                            """Directory where to write event logs """
                            """and checkpoint.""")
+tf.app.flags.DEFINE_string('model', 'hippo',
+                           """Model to load """)
 tf.app.flags.DEFINE_string('data_dir', '/tmp/',
                            """Directory where to read input data """)
 tf.flags.DEFINE_string('dataset', 'caltech',
@@ -29,7 +27,7 @@ tf.app.flags.DEFINE_integer('file_start', 1,
                             """Start file no.""")
 tf.app.flags.DEFINE_integer('file_end', 110,
                             """End file no.""")
-tf.app.flags.DEFINE_integer('max_steps', 50000,
+tf.app.flags.DEFINE_integer('max_steps', 200000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
@@ -39,33 +37,16 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
 
 
-def get_batched_features(batch_size):
-    batched_features = None
-    if FLAGS.dataset == 'hippo':
-        batched_features = hippo_input.inputs('train',
-                                              FLAGS.data_dir,
-                                              batch_size,
-                                              file_start=FLAGS.file_start,
-                                              file_end=FLAGS.file_end)
-    elif FLAGS.dataset == 'affnist':
-        batched_features = affnist_input.inputs('train',
+def get_batched_features(model, batch_size):
+    batched_features = model.data_input.inputs('train',
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end,
-                                                num_classes=FLAGS.num_classes)
-    elif FLAGS.dataset == 'pascal':
-        batched_features = pascal_input.inputs('train',
-                                               FLAGS.data_dir,
-                                               batch_size,
-                                               file_start=FLAGS.file_start,
-                                               file_end=FLAGS.file_end,
-                                               num_classes=FLAGS.num_classes)
+                                                file_end=FLAGS.file_end)
 
     return batched_features
 
-
-def tower_loss(scope, images, labels2d, label_class, num_classes):
+def tower_loss(model, scope, images, labels2d, label_class, num_classes):
     """Calculate the total loss on a single tower running the CIFAR model.
 
     Args:
@@ -78,11 +59,11 @@ def tower_loss(scope, images, labels2d, label_class, num_classes):
     """
 
     # Build inference Graph.
-    class_caps_activations, remakes_flatten, label_logits = inference(images, num_classes)
+    class_caps_activations, remakes_flatten, label_logits = model.inference(images, num_classes)
 
     # Build the portion of the Graph calculating the losses. Note that we will
     # assemble the total_loss using a custom function below.
-    _ = loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits, label_class, num_classes)
+    _ = model.loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits, label_class, num_classes)
 
     # Assemble all of the losses for the current tower only.
     losses = tf.get_collection('losses', scope)
@@ -133,7 +114,9 @@ def average_gradients(tower_grads):
     return average_grads
 
 
-def train(hparams):
+def train(model):
+    hparams = model.default_hparams()
+
     """Train CIFAR-10 for a number of steps."""
     with tf.Graph().as_default(), tf.device('/cpu:0'):
         # Create a variable to count the number of train() calls. This equals the
@@ -158,7 +141,7 @@ def train(hparams):
                 with tf.device('/gpu:%d' % i):
                     with tf.name_scope('tower_%d' % i) as scope:
                         batch_size = FLAGS.batch_size // max(1, FLAGS.num_gpus)
-                        batched_features = get_batched_features(batch_size)
+                        batched_features = get_batched_features(model, batch_size)
 
                         image_batch = batched_features['images']
                         pixel_labels_batch = batched_features['pixel_labels']
@@ -170,7 +153,7 @@ def train(hparams):
                         # Calculate the loss for one tower of the CIFAR model. This function
                         # constructs the entire CIFAR model but shares the variables across
                         # all towers.
-                        loss = tower_loss(scope, image_batch, pixel_labels_batch, label_class_batch, num_classes)
+                        loss = tower_loss(model, scope, image_batch, pixel_labels_batch, label_class_batch, num_classes)
 
                         # Reuse variables for the next tower.
                         tf.get_variable_scope().reuse_variables()
@@ -254,7 +237,7 @@ def train(hparams):
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
-            if step % 10 == 0:
+            if step % 100 == 0:
                 num_examples_per_step = FLAGS.batch_size * FLAGS.num_gpus
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = duration / FLAGS.num_gpus
@@ -274,22 +257,14 @@ def train(hparams):
                 saver.save(sess, checkpoint_path, global_step=step)
 
 
-def default_hparams():
-    """Builds an HParam object with default hyperparameters."""
-    return tf.contrib.training.HParams(
-        decay_rate=0.96,
-        decay_steps=1000,
-        learning_rate=0.001
-    )
-
 
 def main(argv=None):  # pylint: disable=unused-argument
-    hparams = default_hparams()
+    model = get_model(FLAGS.model)
 
     if tf.gfile.Exists(FLAGS.summary_dir):
         tf.gfile.DeleteRecursively(FLAGS.summary_dir)
     tf.gfile.MakeDirs(FLAGS.summary_dir)
-    train(hparams)
+    train(model)
 
 
 if __name__ == '__main__':
