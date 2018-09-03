@@ -194,8 +194,8 @@ def save_nii(target, prediction, save_dir, file_no):
     height = target.shape[1]
     width = target.shape[2]
 
-    target_nii = nib.Nifti1Image(np.reshape(target, (batch_size, height, width)), np.eye(4))
-    prediction_nii = nib.Nifti1Image(np.reshape(prediction, (batch_size, height, width)),
+    target_nii = nib.Nifti1Image(np.reshape(target.astype(np.int32), (batch_size, height, width)), np.eye(4))
+    prediction_nii = nib.Nifti1Image(np.reshape(prediction.astype(np.int32), (batch_size, height, width)),
                                      np.eye(4))
     nib.save(target_nii, os.path.join(save_dir, 't_' + str(file_no) + '.nii.gz'))
     nib.save(prediction_nii, os.path.join(save_dir, 'p_' + str(file_no) + '.nii.gz'))
