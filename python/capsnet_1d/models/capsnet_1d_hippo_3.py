@@ -13,7 +13,7 @@ import python.data.hippo.hippo_input as hippo_input
 data_input = hippo_input
 
 
-def inference(inputs, num_classes, routing_ites=3, remake=False, training=False, name='capsnet_1d'):
+def inference(inputs, num_classes, routing_ites=6, remake=False, training=False, name='capsnet_1d'):
     """
 
     :param inputs:
@@ -57,6 +57,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=False, training=False,
             name='relu_conv2'
         )
         print('conv2 shape: %s' % conv2.get_shape())
+        conv2_dropout = tf.layers.dropout(conv2, 0.5, training=training, name='conv2_dropout')
         # pool2 = tf.nn.max_pool(
         #     conv2,
         #     ksize=[1, 1, 2, 2], strides=[1, 1, 2, 2],
@@ -82,7 +83,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=False, training=False,
         print("\nprimary layer:")
         primary_out_capsules = 32
         primary_caps_activations, conv_primary = primary_caps1d(
-            conv2,
+            conv2_dropout,
             kernel_size=5, out_capsules=primary_out_capsules, stride=1,
             padding='VALID', activation_length=8, name='primary_caps'
         )  # (b, 32, 4, 20, 8)
