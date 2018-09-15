@@ -146,7 +146,7 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
                 capacity=1000 + 3 * batch_size)
 
         batched_features['label_class'] = tf.one_hot(label_class_1, NUM_CLASSES) + tf.one_hot(label_class_2, NUM_CLASSES)
-        batched_features['num_classes'] = 2
+        batched_features['num_classes'] = NUM_CLASSES
 
         return batched_features
 

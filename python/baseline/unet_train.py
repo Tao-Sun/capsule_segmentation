@@ -30,7 +30,7 @@ tf.app.flags.DEFINE_integer('file_start', 1,
                             """Start file no.""")
 tf.app.flags.DEFINE_integer('file_end', 110,
                             """End file no.""")
-tf.app.flags.DEFINE_integer('max_steps', 200000,
+tf.app.flags.DEFINE_integer('max_steps', 600000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
@@ -142,6 +142,12 @@ def train(model):
             optimizer = tf.train.AdamOptimizer(learning_rate, epsilon=0.1)
         elif FLAGS.optimizer == 'sgd':
             learning_rate = tf.constant(hparams.learning_rate)
+            # learning_rate = tf.train.inverse_time_decay(
+            #     learning_rate=hparams.learning_rate,
+            #     global_step=global_step,
+            #     decay_steps=hparams.decay_steps,
+            #     decay_rate=hparams.decay_rate,
+            #     staircase=True)
             optimizer = tf.train.MomentumOptimizer(learning_rate, hparams.momentum)
 
         # Calculate the gradients for each model tower.

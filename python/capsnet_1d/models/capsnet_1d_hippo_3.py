@@ -13,7 +13,7 @@ import python.data.hippo.hippo_input as hippo_input
 data_input = hippo_input
 
 
-def inference(inputs, num_classes, routing_ites=6, remake=False, training=False, name='capsnet_1d'):
+def inference(inputs, num_classes, routing_ites=3, remake=False, training=False, name='capsnet_1d'):
     """
 
     :param inputs:
@@ -119,12 +119,19 @@ def inference(inputs, num_classes, routing_ites=6, remake=False, training=False,
     return class_caps_activations, remakes_flatten, label_logits
 
 
-def _remake(class_caps_activations, num_pixels):
+def _remake(class_caps_activations, capsule_mask, num_pixels):
     first_layer_size, second_layer_size = 512, 1024
-    capsules_2d = tf.contrib.layers.flatten(class_caps_activations)
+
+    print('capsule_mask shape: %s' % capsule_mask.get_shape())
+    activation_length = class_caps_activations.get_shape()[-1].value
+    capsule_mask_3d = tf.expand_dims(capsule_mask, -1)
+    atom_mask = tf.tile(capsule_mask_3d, [1, 1, activation_length])
+    print('atom_mask shape: %s' % atom_mask.get_shape())
+    filtered_embedding = class_caps_activations * atom_mask
+    filtered_embedding_2d = tf.contrib.layers.flatten(filtered_embedding)
 
     remakes_flatten = tf.contrib.layers.stack(
-        inputs=capsules_2d,
+        inputs=filtered_embedding_2d,
         layer=tf.contrib.layers.fully_connected,
         stack_args=[(first_layer_size, tf.nn.relu),
                     (second_layer_size, tf.nn.relu),
@@ -270,12 +277,19 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
     with tf.name_scope('loss'):
         if remakes_flatten is not None:
             with tf.name_scope('remake'):
+                inputs_shape = images.get_shape()
+                image_height = inputs_shape[2].value
+                image_width = inputs_shape[3].value
+                batch_size = inputs_shape[0].value
+
+                capsule_mask = tf.one_hot(tf.constant([1]*batch_size), num_classes)
+                remakes_flatten = _remake(class_caps_activations, capsule_mask, image_height * image_width)
                 image_flatten = tf.contrib.layers.flatten(images)
                 distance = tf.pow(image_flatten - remakes_flatten, 2)
                 remake_loss = tf.reduce_sum(distance, axis=-1)
 
                 batch_remake_loss = tf.reduce_mean(remake_loss)
-                balanced_remake_loss = 0.05 * batch_remake_loss
+                balanced_remake_loss = 0.001 * batch_remake_loss
 
                 tf.add_to_collection('losses', balanced_remake_loss)
                 tf.summary.scalar('remake_loss', balanced_remake_loss)

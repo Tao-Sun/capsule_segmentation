@@ -13,7 +13,7 @@ import python.data.hippo.hippo_input as hippo_input
 data_input = hippo_input
 
 
-def inference(inputs, num_classes, routing_ites=4, remake=False, training=False, name='capsnet_1d'):
+def inference(inputs, num_classes, routing_ites=3, remake=False, training=False, name='capsnet_1d'):
     """
 
     :param inputs:
@@ -52,18 +52,18 @@ def inference(inputs, num_classes, routing_ites=4, remake=False, training=False,
 
         conv2 = conv2d(
             pool1,
-            kernel=3, out_channels=64, stride=1, padding='SAME',
+            kernel=3, out_channels=64, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
             name='relu_conv2'
         )
         print('conv2 shape: %s' % conv2.get_shape())
-        pool2 = tf.nn.max_pool(
-            conv2,
-            ksize=[1, 1, 2, 2], strides=[1, 1, 2, 2],
-            padding='VALID', data_format='NCHW', name='pool2'
-        )
-        print('pool2 shape: %s' % pool2.get_shape())
-        pool2_dropout = tf.layers.dropout(pool2, 0.5, training=training, name='pool2_dropout')
+        conv2_dropout = tf.layers.dropout(conv2, 0.5, training=training, name='conv2_dropout')
+        # pool2 = tf.nn.max_pool(
+        #     conv2,
+        #     ksize=[1, 1, 2, 2], strides=[1, 1, 2, 2],
+        #     padding='VALID', data_format='NCHW', name='pool2'
+        # )
+        # print('pool2 shape: %s' % pool2.get_shape())
 
         # conv3 = conv2d(
         #     pool2,
@@ -83,8 +83,8 @@ def inference(inputs, num_classes, routing_ites=4, remake=False, training=False,
         print("\nprimary layer:")
         primary_out_capsules = 32
         primary_caps_activations, conv_primary = primary_caps1d(
-            pool2_dropout,
-            kernel_size=3, out_capsules=primary_out_capsules, stride=1,
+            conv2_dropout,
+            kernel_size=5, out_capsules=primary_out_capsules, stride=1,
             padding='VALID', activation_length=8, name='primary_caps'
         )  # (b, 32, 4, 20, 8)
 
@@ -99,7 +99,7 @@ def inference(inputs, num_classes, routing_ites=4, remake=False, training=False,
         print('class_caps_activations shape: %s' % class_caps_activations.get_shape())
 
         if remake:
-            remakes_flatten = _remake(class_caps_activations, image_height * image_width)
+            remakes_flatten = None
         else:
             remakes_flatten = None
 
@@ -108,7 +108,7 @@ def inference(inputs, num_classes, routing_ites=4, remake=False, training=False,
             primary_caps_activations, primary_out_capsules,
             coupling_coeffs=class_coupling_coeffs,
             num_classes=num_classes, batch_size=batch_size,
-            pool1=pool1, pool2=pool2, training=training)
+            pool1=pool1, conv2=conv2, training=training)
         # label_logits = tf.Print(label_logits, [tf.constant("label_logits"), label_logits[0]], summarize=100)
         # label_logits = tf.check_numerics(label_logits, message="nan or inf from: label_logits")
 
@@ -119,12 +119,20 @@ def inference(inputs, num_classes, routing_ites=4, remake=False, training=False,
     return class_caps_activations, remakes_flatten, label_logits
 
 
-def _remake(class_caps_activations, num_pixels):
+def _remake(class_caps_activations, capsule_mask, num_pixels):
+    print("\nremake:")
     first_layer_size, second_layer_size = 512, 1024
-    capsules_2d = tf.contrib.layers.flatten(class_caps_activations)
+
+    print('capsule_mask shape: %s' % capsule_mask.get_shape())
+    activation_length = class_caps_activations.get_shape()[-1].value
+    capsule_mask_3d = tf.expand_dims(capsule_mask, -1)
+    atom_mask = tf.tile(capsule_mask_3d, [1, 1, activation_length])
+    print('atom_mask shape: %s' % atom_mask.get_shape())
+    filtered_embedding = class_caps_activations * atom_mask
+    filtered_embedding_2d = tf.contrib.layers.flatten(filtered_embedding)
 
     remakes_flatten = tf.contrib.layers.stack(
-        inputs=capsules_2d,
+        inputs=filtered_embedding_2d,
         layer=tf.contrib.layers.fully_connected,
         stack_args=[(first_layer_size, tf.nn.relu),
                     (second_layer_size, tf.nn.relu),
@@ -136,7 +144,7 @@ def _remake(class_caps_activations, num_pixels):
 
     return remakes_flatten  # (b, 1344)
 
-def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, pool1, pool2, training):
+def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, pool1, conv2, training):
     capsule_probs = tf.norm(activations, axis=-1)  # # (b, 32, 4, 20, 8) -> (b, 32, 4, 20)
     caps_probs_tiled = tf.tile(tf.expand_dims(capsule_probs, -1), [1, 1, 1, 1, num_classes])  # (b, 32, 4, 20, 2)
     # caps_probs_tiled = tf.check_numerics(caps_probs_tiled, message="nan or inf from: caps_probs_tiled")
@@ -167,7 +175,7 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, 
 
     deconv1 = deconv(
         primary_conv,
-        kernel=3, out_channels=128, stride=1, data_format='NCHW',
+        kernel=5, out_channels=128, stride=1, data_format='NCHW',
         activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
         name='deconv1'
     )
@@ -179,11 +187,11 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, 
     #     name='deconv1_conv'
     # )
     # print('deconv1_conv shape: %s' % deconv1_conv.get_shape())
-    concat1 = tf.concat([pool2, deconv1], axis=1, name='concat1')
+    concat1 = tf.concat([conv2, deconv1], axis=1, name='concat1')
     dropout1 = tf.layers.dropout(concat1, 0.5, training=training, name='dropout1')
     concat1_conv = conv2d(
         dropout1,
-        kernel=2, out_channels=128, stride=1, padding='VALID',
+        kernel=3, out_channels=128, stride=1, padding='SAME',
         activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
         name='concat1_conv'
     )
@@ -191,7 +199,7 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, 
 
     deconv2 = deconv(
         concat1_conv,
-        kernel=4, out_channels=128, stride=2, data_format='NCHW',
+        kernel=3, out_channels=128, stride=1, data_format='NCHW',
         activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
         name='deconv2'
     )
@@ -207,7 +215,7 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, 
     dropout2 = tf.layers.dropout(concat2, 0.5, training=training, name='dropout2')
     concat2_conv = conv2d(
         dropout2,
-        kernel=2, out_channels=128, stride=1, padding='VALID',
+        kernel=3, out_channels=128, stride=1, padding='SAME',
         activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
         name='concat2_conv'
     )
@@ -220,16 +228,10 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, 
         name='deconv3'
     )
     print('deconv3 shape: %s' % deconv3.get_shape())
-    # deconv3_conv = conv2d(
-    #     deconv3,
-    #     kernel=3, out_channels=128, stride=1, padding='SAME',
-    #     activation_fn=tf.nn.relu, name='deconv3_conv'
-    # )
-    # print('deconv3_conv shape: %s' % deconv3_conv.get_shape())
 
     class_conv = conv2d(
         deconv3,
-        kernel=3, out_channels=num_classes, stride=1, padding='SAME',
+        kernel=3, out_channels=num_classes, stride=1, padding='VALID',
         name='class_conv'
     )
     print('class_conv shape: %s' % class_conv.get_shape())
@@ -274,17 +276,24 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
     """
 
     with tf.name_scope('loss'):
-        if remakes_flatten is not None:
-            with tf.name_scope('remake'):
-                image_flatten = tf.contrib.layers.flatten(images)
-                distance = tf.pow(image_flatten - remakes_flatten, 2)
-                remake_loss = tf.reduce_sum(distance, axis=-1)
+        # if remakes_flatten is not None:
+        with tf.name_scope('remake'):
+            inputs_shape = images.get_shape()
+            image_height = inputs_shape[2].value
+            image_width = inputs_shape[3].value
+            batch_size = inputs_shape[0].value
 
-                batch_remake_loss = tf.reduce_mean(remake_loss)
-                balanced_remake_loss = 0.05 * batch_remake_loss
+            capsule_mask = tf.one_hot(tf.constant([1]*batch_size), num_classes)
+            remakes_flatten = _remake(class_caps_activations, capsule_mask, image_height * image_width)
+            image_flatten = tf.contrib.layers.flatten(images)
+            distance = tf.pow(image_flatten - remakes_flatten, 2)
+            remake_loss = tf.reduce_sum(distance, axis=-1)
 
-                tf.add_to_collection('losses', balanced_remake_loss)
-                tf.summary.scalar('remake_loss', balanced_remake_loss)
+            batch_remake_loss = tf.reduce_mean(remake_loss)
+            balanced_remake_loss = 0.005 * batch_remake_loss
+
+            tf.add_to_collection('losses', balanced_remake_loss)
+            tf.summary.scalar('remake_loss', balanced_remake_loss)
 
         with tf.name_scope('margin'):
             one_hot_label_class = label_class  # tf.one_hot(label_class, depth=num_classes)
@@ -292,7 +301,7 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
 
             batch_margin_loss = tf.reduce_mean(margin_loss)
-            balanced_margin_loss = 10 * batch_margin_loss
+            balanced_margin_loss = 1.5 * batch_margin_loss
             # batch_margin_loss = tf.Print(batch_margin_loss, [batch_margin_loss])
             tf.add_to_collection('losses', balanced_margin_loss)
             tf.summary.scalar('margin_loss', balanced_margin_loss)
@@ -315,7 +324,7 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             print('cross_entropy shape: %s' % weighted_losses.get_shape())
 
             batch_decode_loss = tf.reduce_mean(weighted_losses)
-            balanced_decode_loss = batch_decode_loss
+            balanced_decode_loss = 0.05 * batch_decode_loss
 
             tf.add_to_collection('losses', balanced_decode_loss)
             tf.summary.scalar('decode_loss', balanced_decode_loss)

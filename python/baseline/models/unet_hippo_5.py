@@ -10,7 +10,7 @@ def inference(inputs, num_classes, training=False, name='unet'):
     with tf.variable_scope(name) as scope:
         conv1 = conv2d(
             inputs,
-            kernel=3, out_channels=32, stride=1, padding='SAME',
+            kernel=3, out_channels=32, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
             name='relu_conv1'
         )
@@ -54,7 +54,7 @@ def inference(inputs, num_classes, training=False, name='unet'):
 
         deconv1 = deconv(
             pool3_dropout,
-            kernel=2, out_channels=128, stride=2, data_format='NCHW',
+            kernel=3, out_channels=128, stride=2, data_format='NCHW',
             activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
             name='deconv1'
         )
@@ -78,7 +78,7 @@ def inference(inputs, num_classes, training=False, name='unet'):
 
         deconv2 = deconv(
             concat1_conv,
-            kernel=2, out_channels=128, stride=2, data_format='NCHW',
+            kernel=3, out_channels=128, stride=2, data_format='NCHW',
             activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
             name='deconv2'
         )
@@ -102,7 +102,7 @@ def inference(inputs, num_classes, training=False, name='unet'):
 
         deconv3 = deconv(
             concat2_conv,
-            kernel=2, out_channels=128, stride=2, data_format='NCHW',
+            kernel=4, out_channels=128, stride=2, data_format='NCHW',
             activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
             name='deconv3'
         )

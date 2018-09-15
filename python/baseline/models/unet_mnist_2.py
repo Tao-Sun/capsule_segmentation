@@ -1,27 +1,26 @@
 import tensorflow as tf
 
 from python.layers.convolution import conv2d, deconv
-import python.data.hippo.hippo_input as hippo_input
-
-
-data_input = hippo_input
 
 def inference(inputs, num_classes, name='unet'):
     with tf.variable_scope(name) as scope:
         conv1 = conv2d(
             inputs,
-            kernel=5, out_channels=128, stride=1, padding='VALID',
-            activation_fn=tf.nn.relu, name='relu_conv1'
+            kernel=5, out_channels=512, stride=1, padding='VALID',
+            activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
+            name='relu_conv1'
         )
         print('conv1 shape: %s' % conv1.get_shape())
-        # max_pool1 = tf.nn.max_pool(
-        #     conv1,
-        #     ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
-        #     padding='VALID', data_format='NCHW', name='max_pool1'
-        # )
-        conv2 = conv2d(
+        pool1 = tf.nn.max_pool(
             conv1,
-            kernel=5, out_channels=128, stride=1, padding='VALID',
+            ksize=[1, 1, 2, 2], strides=[1, 1, 2, 2],
+            padding='VALID', data_format='NCHW', name='pool1'
+        )
+        print('pool1 shape: %s' % pool1.get_shape())
+
+        conv2 = conv2d(
+            pool1,
+            kernel=5, out_channels=256, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv2'
         )
         print('conv2 shape: %s' % conv2.get_shape())
@@ -32,7 +31,7 @@ def inference(inputs, num_classes, name='unet'):
         # )
         conv3 = conv2d(
             conv2,
-            kernel=3, out_channels=256, stride=2, padding='VALID',
+            kernel=5, out_channels=128, stride=2, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv3'
         )
         print('conv3 shape: %s' % conv3.get_shape())
@@ -45,7 +44,7 @@ def inference(inputs, num_classes, name='unet'):
 
         deconv1 = deconv(
             conv3,
-            kernel=4, out_channels=128, stride=2, data_format='NCHW',
+            kernel=6, out_channels=128, stride=2, data_format='NCHW',
             activation_fn=tf.nn.relu, name='deconv1'
         )
         print('deconv1 shape: %s' % deconv1.get_shape())
@@ -58,11 +57,11 @@ def inference(inputs, num_classes, name='unet'):
         )
         deconv2 = deconv(
             deconv1_conv,
-            kernel=5, out_channels=128, stride=1, data_format='NCHW',
+            kernel=3, out_channels=128, stride=1, data_format='NCHW',
             activation_fn=tf.nn.relu, name='deconv2'
         )
         print('deconv2 shape: %s' % deconv2.get_shape())
-        concat2 = tf.concat([conv1, deconv2], axis=1, name='concat2')
+        concat2 = tf.concat([conv12, deconv2], axis=1, name='concat2')
         # print('concat2 shape: %s' % concat2.get_shape())
         deconv2_conv = conv2d(
             concat2,
@@ -70,9 +69,37 @@ def inference(inputs, num_classes, name='unet'):
             activation_fn=tf.nn.relu, name='deconv2_conv'
         )
 
-        deconv3 = deconv(
+        deconv31 = deconv(
             deconv2_conv,
-            kernel=5, out_channels=num_classes, stride=1, data_format='NCHW',
+            kernel=3, out_channels=128, stride=1, data_format='NCHW',
+            activation_fn=tf.nn.relu, name='deconv31'
+        )
+        print('deconv31 shape: %s' % deconv31.get_shape())
+        concat31 = tf.concat([conv11, deconv31], axis=1, name='concat31')
+        # print('concat2 shape: %s' % concat2.get_shape())
+        deconv31_conv = conv2d(
+            concat31,
+            kernel=3, out_channels=128, stride=1, padding='SAME',
+            activation_fn=tf.nn.relu, name='deconv31_conv'
+        )
+
+        deconv32 = deconv(
+            deconv31_conv,
+            kernel=3, out_channels=128, stride=1, data_format='NCHW',
+            activation_fn=tf.nn.relu, name='deconv32'
+        )
+        print('deconv32 shape: %s' % deconv32.get_shape())
+        concat32 = tf.concat([conv1, deconv32], axis=1, name='concat31')
+        # print('concat2 shape: %s' % concat2.get_shape())
+        deconv32_conv = conv2d(
+            concat32,
+            kernel=3, out_channels=128, stride=1, padding='SAME',
+            activation_fn=tf.nn.relu, name='deconv32_conv'
+        )
+
+        deconv3 = deconv(
+            deconv32_conv,
+            kernel=7, out_channels=num_classes, stride=1, data_format='NCHW',
             activation_fn=tf.nn.relu, name='deconv3'
         )
         # print('deconv3 shape: %s' % deconv3.get_shape())
@@ -104,17 +131,7 @@ def loss(labels2d, label_logits, num_classes):
         print('cross_entropy shape: %s' % weighted_losses.get_shape())
 
         batch_decode_loss = tf.reduce_mean(weighted_losses)
-        balanced_decode_loss = 5 * batch_decode_loss
+        balanced_decode_loss = batch_decode_loss
 
         tf.add_to_collection('losses', balanced_decode_loss)
         tf.summary.scalar('decode_loss', balanced_decode_loss)
-
-
-def default_hparams():
-    """Builds an HParam object with default hyperparameters."""
-    return tf.contrib.training.HParams(
-        decay_rate=0.96,
-        decay_steps=1000,
-        learning_rate=1.0e-3,
-        momentum=0.99
-    )

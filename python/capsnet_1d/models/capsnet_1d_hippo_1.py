@@ -63,6 +63,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=False, training=False,
             padding='VALID', data_format='NCHW', name='pool2'
         )
         print('pool2 shape: %s' % pool2.get_shape())
+        pool2_dropout = tf.layers.dropout(pool2, 0.5, training=training, name='pool2_dropout')
 
         # conv3 = conv2d(
         #     pool2,
