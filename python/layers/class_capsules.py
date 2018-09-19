@@ -28,14 +28,20 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
             with tf.name_scope('weights'):
                 weights = tf.get_variable(
                     'weights_1',
-                    [in_capsules * in_height * in_width, in_pose_length, num_classes * activation_length],
+                    [in_capsules, in_pose_length, num_classes*activation_length],
                     initializer=tf.truncated_normal_initializer(
                         stddev=5e-2, dtype=tf.float32),
                     dtype=tf.float32)  # (32*4*20, 8, 2*64)
+                weights_titled = tf.tile(tf.expand_dims(weights, 1), [1, in_height*in_width, 1, 1])
+                weights_reshaped = \
+                    tf.reshape(weights_titled, [in_capsules*in_height*in_width, in_pose_length, num_classes*activation_length])
+                print('weights_reshaped shape: %s' % weights_reshaped.get_shape())
+
 
         with tf.name_scope('Wx_plus_b'):
             input_tiled = tf.tile(tf.expand_dims(inputs_3d, -1), [1, 1, 1, num_classes * activation_length])  # (b, 32*4*20, 8, 2*64)
-            votes = tf.reduce_sum(input_tiled * weights, axis=2)
+            print('input_tiled shape: %s' % input_tiled.get_shape())
+            votes = tf.reduce_sum(input_tiled * weights_reshaped, axis=2)
             votes_reshaped = tf.reshape(votes, [-1, in_capsules * in_height * in_width, num_classes, activation_length])  # (b, 32*4*20, 2, 64)
             votes_reshaped = tf.check_numerics(votes_reshaped, message="nan or inf from: votes_reshaped in class capsules")
             print('votes_reshaped shape: %s' % votes_reshaped.get_shape())
