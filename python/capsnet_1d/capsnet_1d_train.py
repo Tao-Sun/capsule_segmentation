@@ -31,7 +31,7 @@ tf.app.flags.DEFINE_integer('max_steps', 200000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
-tf.app.flags.DEFINE_integer('num_classes', 2,
+tf.app.flags.DEFINE_integer('num_classes', 11,
                             """How many classes to classify.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
@@ -42,7 +42,8 @@ def get_batched_features(model, batch_size):
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end)
+                                                file_end=FLAGS.file_end,
+                                                num_classes=FLAGS.num_classes)
 
     return batched_features
 

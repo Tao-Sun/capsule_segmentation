@@ -24,7 +24,7 @@ def inference(inputs, num_classes, training=False, name='unet'):
 
         conv12 = conv2d(
             conv11,
-            kernel=5, out_channels=128, stride=1, padding='VALID',
+            kernel=7, out_channels=128, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv12'
         )
         print('conv12 shape: %s' % conv12.get_shape())
@@ -35,7 +35,7 @@ def inference(inputs, num_classes, training=False, name='unet'):
         # )
         conv2 = conv2d(
             conv12,
-            kernel=5, out_channels=128, stride=1, padding='VALID',
+            kernel=7, out_channels=128, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv2'
         )
         print('conv2 shape: %s' % conv2.get_shape())
@@ -72,7 +72,7 @@ def inference(inputs, num_classes, training=False, name='unet'):
         )
         deconv2 = deconv(
             deconv1_conv,
-            kernel=5, out_channels=128, stride=1, data_format='NCHW',
+            kernel=7, out_channels=128, stride=1, data_format='NCHW',
             activation_fn=tf.nn.relu, name='deconv2'
         )
         print('deconv2 shape: %s' % deconv2.get_shape())
@@ -86,7 +86,7 @@ def inference(inputs, num_classes, training=False, name='unet'):
 
         deconv31 = deconv(
             deconv2_conv,
-            kernel=5, out_channels=128, stride=1, data_format='NCHW',
+            kernel=7, out_channels=128, stride=1, data_format='NCHW',
             activation_fn=tf.nn.relu, name='deconv31'
         )
         print('deconv31 shape: %s' % deconv31.get_shape())

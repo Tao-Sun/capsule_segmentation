@@ -59,7 +59,8 @@ def convert(images, labels, index, digits, occlusion):
 
             if label in digits:
                 index = digits.index(label)
-                label_class = index + 1
+                # Class label of the number 0 is 1, class label of the number 1 is 2, and so on.
+                label_class = index + 1  # label + 1
                 digit_nums[index] += 1
 
                 if occlusion:
@@ -149,7 +150,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--digits',
         type=list,
-        default=[0, 8],
+            default=[0, 8],
         help='Digits to convert.'
     )
     parser.add_argument(

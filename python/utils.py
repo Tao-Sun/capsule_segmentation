@@ -99,11 +99,16 @@ def connected_error_num(target, prediction, target_label, threshold=35, connecti
     error_map_1 = np.zeros(target_shape, dtype=np.uint8)
     error_map_2 = np.zeros(target_shape, dtype=np.uint8)
     error_map_3 = np.zeros(target_shape, dtype=np.uint8)
+    # true target labels as 1, background as 0
     error_map_1[np.where(target == target_label)] = 1
+    # predicted other labels and predicted background as 1, others as 0
     error_map_2[np.where(prediction != target_label)] = 1
+    # predicted target_labels and predicted other labels as 1, others as 0
     error_map_3[np.where(prediction != background_value)] = 1
 
+    # predicted other labels and predicted background that should be target labels as 1, others as 0
     error_map = np.logical_and(error_map_1, error_map_2)
+    # predicted other labels that should be target labels as 1, others as 0
     error_map = np.logical_and(error_map, error_map_3).astype(np.uint8)
     # print(error_map)
     _, _, stats, _ = cv2.connectedComponentsWithStats(error_map, connectivity)

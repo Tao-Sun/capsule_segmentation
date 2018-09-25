@@ -21,7 +21,7 @@ tf.app.flags.DEFINE_string('eval_data', 'test',
 tf.flags.DEFINE_string('dataset', 'caltech',
                        'The dataset to use for the experiment.'
                        'hippo, affnist, caltech.')
-tf.app.flags.DEFINE_integer('batch_size', 24,
+tf.app.flags.DEFINE_integer('batch_size', 50,
                             """Batch size.""")
 tf.app.flags.DEFINE_integer('subject_size', 48,
                             """How many batches constitute a subject.""")
@@ -33,11 +33,11 @@ tf.app.flags.DEFINE_string('checkpoint_dir', '/tmp/cifar10_train',
                            """Directory where to read model checkpoints.""")
 tf.app.flags.DEFINE_string('checkpoint_file', None,
                             """checkpoint file to load.""")
-tf.app.flags.DEFINE_integer('eval_interval_secs', 30,
+tf.app.flags.DEFINE_integer('eval_interval_secs', 120,
                             """How often to run the eval.""")
 tf.app.flags.DEFINE_integer('num_examples', 576,
                             """Number of examples to run.""")
-tf.app.flags.DEFINE_integer('num_gpus', 2,
+tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
 tf.app.flags.DEFINE_boolean('run_once', False,
                             """Whether to run eval only once.""")
@@ -54,7 +54,8 @@ def get_batched_features(model, batch_size):
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end)
+                                                file_end=FLAGS.file_end,
+                                                num_classes=FLAGS.num_classes)
 
     return batched_features
 
@@ -154,7 +155,7 @@ def eval_once(model, summary_writer, img_indices_op, images_op, inferred_labels_
                             model.data_input.save_files(FLAGS.data_dir, 'unet', indices_batch[i], image_batch[i],
                                                      target_batch[i], prediction_batch[i], num_classes)
 
-                    for i in range(num_classes):
+                    for i in range(num_classes - 1):
                         total_dices[i] = np.concatenate((total_dices[i], batch_dices[i]))
                         total_error_blocks[i] = np.concatenate((total_error_blocks[i], batch_error_blocks_num[i]))
                         total_accu_stats += batch_accu_stats
@@ -201,16 +202,49 @@ def eval_once(model, summary_writer, img_indices_op, images_op, inferred_labels_
             # print('mIoU: %f\n' % np.nanmean(mIoUs))
 
             global_error_blocks= []
-            for i in range(1, num_classes):
-                print("class: %d" % i)
-                mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
-                # mean_block_errors = np.mean(total_error_blocks[i])
-                # total_block_errors = np.sum(total_error_blocks[i])
-                # global_error_blocks.extend(total_error_blocks[i].tolist())
+            if FLAGS.dataset == 'hippo':
+                for i in range(1, num_classes):
+                    print("class: %d" % i)
+                    mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
+                    # mean_block_errors = np.mean(total_error_blocks[i])
+                    # total_block_errors = np.sum(total_error_blocks[i])
+                    # global_error_blocks.extend(total_error_blocks[i].tolist())
 
-                # print('class: %d, accuracy: %f, IoU: %f' % (i, class_accuracies[i], mIoUs[i]))
-                print('mean dices:  %f' % mean_dices)
-                print('dices std: %f' % std_dices)
+                    # print('class: %d, accuracy: %f, IoU: %f' % (i, class_accuracies[i], mIoUs[i]))
+                    print('mean dices:  %f' % mean_dices)
+                    print('dices std: %f' % std_dices)
+            elif FLAGS.dataset == 'affnist':
+                global_error_blocks = []
+                print('total_accu_stats shape:' + str(total_accu_stats[2][1:].shape))
+
+                global_accuracy, class_accuracies, mIoU = \
+                    accuracies(total_accu_stats[0][1:], total_accu_stats[1][1:], total_accu_stats[2][1:])
+                print('\nglobal accuracy: %f' % global_accuracy)
+                print('class mean accuracy: %f' % np.mean(class_accuracies))
+                # print('mIoU: %s\n' % str(mIoU))
+
+                total_mean_dices = [] * (num_classes - 1)
+                total_std_dices = [] * (num_classes - 1)
+                for i in range(num_classes - 1):
+                    print("class: %d" % (i + 1))
+                    mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
+                    total_mean_dices.append(mean_dices)
+                    total_std_dices.append(std_dices)
+
+                    mean_block_errors = np.mean(total_error_blocks[i])
+                    total_block_errors = np.sum(total_error_blocks[i])
+                    global_error_blocks.extend(total_error_blocks[i])
+                    # mean_accu = np.mean(total_accuracies[i] )
+
+                    print('accuracy: %f' % class_accuracies[i])
+                    print('mean dices:  %f' % mean_dices)
+                    print('dices std: %f' % std_dices)
+                    print('total block errors:  %d' % total_block_errors)
+                    print('mean block errors:  %.6f' % mean_block_errors)
+
+                print('\ntotal mean dices:  %f' % np.mean(total_mean_dices))
+                print('total dices std: %f' % np.mean(total_std_dices))
+                print('total error blocks:  %.6f' % np.sum(global_error_blocks))
                 # print('total block errors:  %f' % total_block_errors)
                 # print('mean block errors:  %f' % mean_block_errors)
                 # print('\nmean accuracies:  %f' % mean_accu)

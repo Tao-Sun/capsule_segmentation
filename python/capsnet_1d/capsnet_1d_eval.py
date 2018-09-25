@@ -35,13 +35,13 @@ tf.app.flags.DEFINE_string('checkpoint_dir', '/tmp/cifar10_train',
                            """Directory where to read model checkpoints.""")
 tf.app.flags.DEFINE_string('checkpoint_file', None,
                             """checkpoint file to load.""")
-tf.app.flags.DEFINE_integer('eval_interval_secs', 30,
+tf.app.flags.DEFINE_integer('eval_interval_secs', 120,
                             """How often to run the eval.""")
-tf.app.flags.DEFINE_integer('num_examples', 576,
+tf.app.flags.DEFINE_integer('num_examples', 10000,
                             """Number of examples to run.""")
 tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
-tf.app.flags.DEFINE_integer('num_classes', 2,
+tf.app.flags.DEFINE_integer('num_classes', 11,
                             """How many classes to classify.""")
 tf.app.flags.DEFINE_boolean('run_once', False,
                             """Whether to run eval only once.""")
@@ -56,7 +56,8 @@ def get_batched_features(model, batch_size):
                                                FLAGS.data_dir,
                                                batch_size,
                                                file_start=FLAGS.file_start,
-                                               file_end=FLAGS.file_end)
+                                               file_end=FLAGS.file_end,
+                                               num_classes=FLAGS.num_classes)
     return batched_features
 
 
@@ -201,29 +202,60 @@ def eval_once(model, summary_writer, img_indices_op, inferred_labels_op, images_
 
                 step += 1
 
-            # global_accuracy, class_accuracies, class_mean_accuracy, mIoU = \
-            #     accuracies(total_accu_stats[0][1:], total_accu_stats[1][1:], total_accu_stats[2][1:])
-            # print('\nglobal accuracy: %f' % global_accuracy)
-            # print('class mean accuracy: %f' % class_mean_accuracy)
-            # print('mIoU: %f\n' % mIoU)
+            if FLAGS.dataset == "hippo":
+                global_error_blocks = []
 
-            global_error_blocks = []
+                for i in range(num_classes - 1):
+                    print("class: %d" % (i + 1))
+                    mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
+                    mean_block_errors = np.mean(total_error_blocks[i])
+                    total_block_errors = np.sum(total_error_blocks[i])
+                    global_error_blocks.extend(total_error_blocks[i])
+                    # mean_accu = np.mean(total_accuracies[i] )
 
-            for i in range(num_classes - 1):
-                print("class: %d" % (i + 1))
-                mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
-                mean_block_errors = np.mean(total_error_blocks[i])
-                total_block_errors = np.sum(total_error_blocks[i])
-                global_error_blocks.extend(total_error_blocks[i])
-                # mean_accu = np.mean(total_accuracies[i] )
+                    # print('accuracy: %f' % class_accuracies[i + 1])
+                    print('mean dices:  %f' % mean_dices)
+                    print('dices std: %f' % std_dices)
+                    print('total block errors:  %d' % total_block_errors)
+                    print('mean block errors:  %.6f' % mean_block_errors)
 
-                # print('accuracy: %f' % class_accuracies[i + 1])
-                print('mean dices:  %f' % mean_dices)
-                print('dices std: %f' % std_dices)
-                print('total block errors:  %d' % total_block_errors)
-                print('mean block errors:  %.6f' % mean_block_errors)
+                print('\ntotal error blocks:  %.6f' % np.sum(global_error_blocks))
+            elif FLAGS.dataset == 'affnist':
+                global_error_blocks = []
+                print('total_accu_stats shape:' + str(total_accu_stats[2][1:].shape))
 
-            print('\ntotal error blocks:  %.6f' % np.sum(global_error_blocks))
+                global_accuracy, class_accuracies, mIoU = \
+                    accuracies(total_accu_stats[0][1:], total_accu_stats[1][1:], total_accu_stats[2][1:])
+                print('\nglobal accuracy: %f' % global_accuracy)
+                print('class mean accuracy: %f\n' % np.mean(class_accuracies))
+                # print('mIoU: %s\n' % str(mIoU))
+
+                total_mean_dices = [] * (num_classes-1)
+                total_std_dices = [] * (num_classes-1)
+                for i in range(num_classes-1):
+                    print("class: %d" % (i+1))
+                    mean_dices, std_dices = np.mean(total_dices[i]), np.std(total_dices[i])
+                    total_mean_dices.append(mean_dices)
+                    total_std_dices.append(std_dices)
+
+                    mean_block_errors = np.mean(total_error_blocks[i])
+                    total_block_errors = np.sum(total_error_blocks[i])
+                    global_error_blocks.extend(total_error_blocks[i])
+                    # mean_accu = np.mean(total_accuracies[i] )
+
+                    print('accuracy: %f' % class_accuracies[i])
+                    print('mean dices:  %f' % mean_dices)
+                    print('dices std: %f' % std_dices)
+                    print('total block errors:  %d' % total_block_errors)
+                    print('mean block errors:  %.6f' % mean_block_errors)
+
+                print('\ntotal mean dices:  %f' % np.mean(total_mean_dices))
+                print('total dices std: %f' % np.mean(total_std_dices))
+                print('total error blocks:  %.6f' % np.sum(global_error_blocks))
+
+
+
+
 
             summary = tf.Summary()
             summary.ParseFromString(sess.run(summary_op))

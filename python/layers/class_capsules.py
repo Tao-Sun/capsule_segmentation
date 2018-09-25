@@ -32,10 +32,10 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
                     initializer=tf.truncated_normal_initializer(
                         stddev=5e-2, dtype=tf.float32),
                     dtype=tf.float32)  # (32*4*20, 8, 2*64)
+                print('weights shape: %s' % weights.get_shape())
                 weights_titled = tf.tile(tf.expand_dims(weights, 1), [1, in_height*in_width, 1, 1])
                 weights_reshaped = \
                     tf.reshape(weights_titled, [in_capsules*in_height*in_width, in_pose_length, num_classes*activation_length])
-                print('weights_reshaped shape: %s' % weights_reshaped.get_shape())
 
 
         with tf.name_scope('Wx_plus_b'):

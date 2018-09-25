@@ -37,7 +37,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=False, training=False,
         print("\nconv1 layer:")
         conv1 = conv2d(
             inputs,
-            kernel=5, out_channels=256, stride=1, padding='VALID',
+            kernel=7, out_channels=256, stride=1, padding='VALID',
             activation_fn=tf.nn.relu, name='relu_conv1'
         )
         # conv1 = tf.check_numerics(conv1, message="nan or inf from: conv1")
@@ -59,7 +59,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=False, training=False,
         primary_out_capsules = 24
         primary_caps_activations, conv2 = primary_caps1d(
             conv1,
-            kernel_size=3, out_capsules=primary_out_capsules, stride=2,
+            kernel_size=5, out_capsules=primary_out_capsules, stride=2,
             padding='VALID', activation_length=8, name='primary_caps'
         )  # (b, 32, 4, 20, 8)
 
@@ -142,7 +142,7 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, 
 
     deconv2 = deconv(
         primary_conv,
-        kernel=4, out_channels=128, stride=2,
+        kernel=6, out_channels=128, stride=2,
         activation_fn=tf.nn.relu, name='deconv2'
     )
     print('deconv2 shape: %s' % deconv2.get_shape())
@@ -163,7 +163,7 @@ def _decode(activations, capsule_num, coupling_coeffs, num_classes, batch_size, 
     # deconv3 = tf.Print(deconv3, [tf.constant("deconv3"), deconv3])
     deconv3 = deconv(
         deconv2_conv,
-        kernel=5, out_channels=num_classes, stride=1,
+        kernel=7, out_channels=num_classes, stride=1,
         activation_fn=tf.nn.relu, name='deconv3'
     )
     deconv3_conv = conv2d(

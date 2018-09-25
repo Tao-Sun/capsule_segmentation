@@ -208,6 +208,7 @@ def save_files(save_dir, model_type, file_no, image, label, prediction, num_clas
     target_path = os.path.join(save_dir, model_type, str(file_no) + '_target' + '.png')
     prediction_path = os.path.join(save_dir, model_type, str(file_no) + '_prediction' + '.png')
     image = np.array(255 * np.squeeze(image), dtype=np.uint8)
+
     cv2.imwrite(image_path, image)
     cv2.imwrite(target_path, label)
     cv2.imwrite(prediction_path, prediction_img)

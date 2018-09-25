@@ -21,7 +21,7 @@ tf.app.flags.DEFINE_string('data_dir', '/tmp/',
 tf.flags.DEFINE_string('dataset', 'caltech',
                        'The dataset to use for the experiment.'
                        'hippo, affnist, caltech.')
-tf.flags.DEFINE_string('optimizer', 'sgd',
+tf.flags.DEFINE_string('optimizer', 'adam',
                        'The optimizer to use for the experiment.'
                        'sgd, adam.')
 tf.app.flags.DEFINE_integer('batch_size', 20,
@@ -34,7 +34,7 @@ tf.app.flags.DEFINE_integer('max_steps', 600000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
-tf.app.flags.DEFINE_integer('num_classes', 2,
+tf.app.flags.DEFINE_integer('num_classes', 11,
                             """How many classes to classify.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
@@ -47,7 +47,8 @@ def get_batched_features(model, batch_size):
                                                 FLAGS.data_dir,
                                                 batch_size,
                                                 file_start=FLAGS.file_start,
-                                                file_end=FLAGS.file_end)
+                                                file_end=FLAGS.file_end,
+                                                num_classes=FLAGS.num_classes)
 
 
     return batched_features
@@ -138,7 +139,7 @@ def train(model):
                 global_step=global_step,
                 decay_steps=hparams.decay_steps,
                 decay_rate=hparams.decay_rate)
-            learning_rate = tf.maximum(learning_rate, 1e-8)
+            learning_rate = tf.maximum(learning_rate, 1e-12)
             optimizer = tf.train.AdamOptimizer(learning_rate, epsilon=0.1)
         elif FLAGS.optimizer == 'sgd':
             learning_rate = tf.constant(hparams.learning_rate)

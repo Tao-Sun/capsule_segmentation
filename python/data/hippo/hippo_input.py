@@ -37,7 +37,6 @@ import skimage.io as io
 import tensorflow as tf
 from python.utils import dice_ratio
 
-NUM_CLASSES = 2
 
 def read_and_decode(filename_queue):
     reader = tf.TFRecordReader()
@@ -84,7 +83,7 @@ def read_and_decode(filename_queue):
     return image, label, label_class_1, label_class_2, name
 
 
-def inputs(split, data_dir, batch_size, file_start, file_end):
+def inputs(split, data_dir, batch_size, file_start, file_end, num_classes=2):
     """Reads input data num_epochs times.
 
     Args:
@@ -106,9 +105,9 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
     file_num = file_end - file_start + 1
     file_names = None
     if split == 'train':
-        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, int(0.9 * file_num))]
+        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in (range(13, file_end + 1))]
     elif split == 'test':
-        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(int(0.9 * file_num), file_end + 1)]
+        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, 13)]
 
     with tf.name_scope('input'):
         shuffle = None
@@ -145,8 +144,8 @@ def inputs(split, data_dir, batch_size, file_start, file_end):
                 num_threads=2,
                 capacity=1000 + 3 * batch_size)
 
-        batched_features['label_class'] = tf.one_hot(label_class_1, NUM_CLASSES) + tf.one_hot(label_class_2, NUM_CLASSES)
-        batched_features['num_classes'] = 2
+        batched_features['label_class'] = tf.one_hot(label_class_1, num_classes) + tf.one_hot(label_class_2, num_classes)
+        batched_features['num_classes'] = num_classes
 
         return batched_features
 

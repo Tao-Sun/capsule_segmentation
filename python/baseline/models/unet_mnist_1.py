@@ -1,8 +1,12 @@
 import tensorflow as tf
 
 from python.layers.convolution import conv2d, deconv
+import python.data.affnist.affnist_input as affnist_input
 
-def inference(inputs, num_classes, name='unet'):
+
+data_input = affnist_input
+
+def inference(inputs, num_classes, training=False, name='unet'):
     with tf.variable_scope(name) as scope:
         conv1 = conv2d(
             inputs,
@@ -146,3 +150,12 @@ def loss(labels2d, label_logits, num_classes):
 
         tf.add_to_collection('losses', balanced_decode_loss)
         tf.summary.scalar('decode_loss', balanced_decode_loss)
+
+def default_hparams():
+    """Builds an HParam object with default hyperparameters."""
+    return tf.contrib.training.HParams(
+        decay_rate=0.96,
+        decay_steps=1000,
+        learning_rate=0.001,
+        momentum=0.99
+    )

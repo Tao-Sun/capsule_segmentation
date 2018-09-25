@@ -96,7 +96,7 @@ def convert_images(images, labels, digits, fidx):
     print('Writing: %s, images num: %d' % (filename, len(images)))
     writer = tf.python_io.TFRecordWriter(filename)
 
-    digit_nums = np.zeros(4)
+    digit_nums = np.zeros(len(digits))
     for i in range(len(images)):
         img = np.reshape(images[i], (40, 40))
 
@@ -108,18 +108,10 @@ def convert_images(images, labels, digits, fidx):
             label = int(labels[i])
 
             if label in digits:
-                if label == digits[0]:
-                    label_class = 1
-                    digit_nums[0] += 1
-                elif label == digits[1]:
-                    label_class = 2
-                    digit_nums[1] += 1
-                # elif label == digits[2]:
-                #     label_class = 3
-                #     digit_nums[2] += 1
-                # elif label == digits[3]:
-                #     label_class = 4
-                #     digit_nums[3] += 1
+                index = digits.index(label)
+                # Class label of the number 0 is 1, class label of the number 1 is 2, and so on.
+                label_class = index + 1
+                digit_nums[index] += 1
 
                 max_noise_val = 5
                 image = add_noise(image, 1, max_noise_val)
@@ -153,52 +145,22 @@ def main(unused_argv):
     print('labels shape: %s' % str(labels.shape))
     images_num = images.shape[1]
 
-    if split == 'train':
-        shift, pad = 6, 6
+    start = 0
+    end = min(FLAGS.file_size, images_num)
+    i = FLAGS.file_start_idx
+    total_nums = np.zeros(len(digits))
+    while True:
+        digit_nums = convert_images(np.transpose(images[:, start:end]), np.transpose(labels[start:end]), digits, i)
+        print("File example nums: %s" % digit_nums)
+        total_nums = total_nums + digit_nums
+        if end < images_num:
+            start = end
+            end = min(end + FLAGS.file_size, images_num)
+            i += 1
+        else:
+            break
 
-        fidx = 0  # tfrecords file index
-        iidx = 0  # files written into tfrecords
-        oidx = 0  # files read from dataset and in the digits
-        file_images = []
-        file_labels = []
-        while oidx < images_num:
-            image, label = images[:, oidx], labels[oidx]
-            if label in digits:
-                image = np.reshape(image, (28, 28))
-                padded_image = np.pad(image, pad, 'constant')
-
-                for i in np.arange(-shift, shift + 1):
-                    for j in np.arange(-shift, shift + 1):
-                        image = _shift_2d(padded_image, (i, j), shift)
-                        file_images.append(image)
-                        file_labels.append(label)
-
-                        iidx += 1
-                        if iidx > FLAGS.file_size:
-                            digit_nums = convert_images(np.array(file_images), np.array(file_labels), digits, fidx)
-                            print("File example nums: %s" % digit_nums)
-                            fidx += 1
-                            iidx = 0
-                            file_images = []
-                            file_labels = []
-            oidx += 1
-    elif split == 'test' or split == 'validation':
-        start = 0
-        end = min(FLAGS.file_size, images_num)
-        i = 0
-        total_nums = np.zeros(4)
-        while True:
-            digit_nums = convert_images(np.transpose(images[:, start:end]), np.transpose(labels[start:end]), digits, i)
-            print("File example nums: %s" % digit_nums)
-            total_nums = total_nums + digit_nums
-            if end < images_num:
-                start = end
-                end = min(end + FLAGS.file_size, images_num)
-                i += 1
-            else:
-                break
-
-        print("Total example nums: %s" % total_nums)
+    print("Total example nums: %s" % total_nums)
 
 
 if __name__ == '__main__':
@@ -227,11 +189,18 @@ if __name__ == '__main__':
         help='The volume of each generated file.'
     )
     parser.add_argument(
+        '--file_start_idx',
+        type=int,
+        default=0,
+        help='Start index of written tfrecords files.'
+    )
+    parser.add_argument(
         '--digits',
         type=list,
-        default=[0, 8],
+        default=range(0, 10),
         help='Digits to convert.'
     )
+
 
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
