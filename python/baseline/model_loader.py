@@ -8,6 +8,7 @@ import python.baseline.models.unet_mnist_1 as unet_mnist_1
 import python.baseline.models.unet_mnist_2 as unet_mnist_2
 import python.baseline.models.unet_mnist_3 as unet_mnist_3
 import python.baseline.models.unet_mnist_4 as unet_mnist_4
+import python.baseline.models.unet_affnist_1 as unet_affnist_1
 
 
 def get_model(name):
@@ -31,4 +32,6 @@ def get_model(name):
         return unet_mnist_3
     elif name == 'mnist4':
         return unet_mnist_4
+    elif name == 'affnist1':
+        return unet_affnist_1
 

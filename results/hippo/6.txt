@@ -1,0 +1,3 @@
+unet 6:
+mean dices:  0.879566
+dices std: 0.027037

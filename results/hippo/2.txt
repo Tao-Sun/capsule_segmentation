@@ -1,0 +1,66 @@
+unet:
+mean dices:  0.866741
+dices std: 0.023595
+
+unet: (same with previous one, but try to run again)
+mean dices:  0.877083
+dices std: 0.018351
+
+capsule (margin:cross=7:1):
+mean dices:  0.868894
+dices std: 0.022677
+
+unet (2_1):
+mean dices:  0.881351
+dices std: 0.028013
+
+caps (2_1):
+mean dices:  0.866677
+dices std: 0.028381
+
+caps (2_2):
+mean dices:  0.877731
+dices std: 0.022581
+
+unet 2_3:
+mean dices:  0.884090
+dices std: 0.017069
+
+unet 2_4:
+mean dices:  0.862321
+dices std: 0.087469
+
+unet 2_5:
+mean dices:  0.858238
+dices std: 0.040046
+
+unet 2_6:
+mean dices:  0.856125
+dices std: 0.063011
+
+unet 2_7:
+mean dices:  0.869398
+dices std: 0.027593
+
+unet 2_8:
+mean dices:  0.829396
+dices std: 0.136923
+
+unet 2_9:
+mean dices:  0.877429
+dices std: 0.018738
+
+unet 2_10:
+mean dices:  0.873625
+dices std: 0.040712
+
+unet 2_11:
+mean dices:  0.887314
+dices std: 0.028331
+
+caps 2_12:
+mean dices:  0.875146
+dices std: 0.023783
+
+
+

@@ -1,0 +1,5 @@
+unet_4:
+global accuracy: 0.974512
+class mean accuracy: 0.974522
+total mean dices:  0.954557
+total dices std: 0.057931

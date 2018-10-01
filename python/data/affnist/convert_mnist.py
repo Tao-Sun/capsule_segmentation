@@ -156,7 +156,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--occlusion',
         type=str,
-        default='False',
+        default='True',
         help='Whether to generate occlusion parts for digits.'
     )
 

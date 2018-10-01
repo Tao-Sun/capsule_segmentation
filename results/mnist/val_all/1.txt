@@ -1,0 +1,46 @@
+unet_all_1:
+global accuracy: 0.980431
+class mean accuracy: 0.980331
+total mean dices:  0.956294
+total dices std: 0.061270
+
+unet_08_occluded_1:
+global accuracy: 0.911734
+class mean accuracy: 0.910110
+total mean dices:  0.912025
+total dices std: 0.166538
+total error blocks:  300.000000
+
+class: 1
+accuracy: 0.933404
+mean dices:  0.925878
+dices std: 0.153059
+total block errors:  123
+mean block errors:  0.125382
+class: 2
+accuracy: 0.886816
+mean dices:  0.898172
+dices std: 0.180017
+total block errors:  177
+mean block errors:  0.182663
+
+
+caps_all_1:
+global accuracy: 0.981987
+class mean accuracy: 0.982046
+total mean dices:  0.988216
+total dices std: 0.055727
+
+caps_all_1_1:
+tf.contrib.training.HParams(
+        decay_rate=0.96,
+        decay_steps=1000,
+        learning_rate=0.001,
+        momentum=0.99
+    )
+global accuracy: 0.983148
+class mean accuracy: 0.983054
+total mean dices:  0.988889
+total dices std: 0.053423
+
+caps_08_occluded:

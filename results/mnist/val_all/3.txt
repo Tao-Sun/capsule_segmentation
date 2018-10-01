@@ -1,0 +1,11 @@
+caps_all_3:
+global accuracy: 0.990069
+class mean accuracy: 0.990024
+total mean dices:  0.991550
+total dices std: 0.055769
+
+caps_all_3_1:
+global accuracy: 0.990562
+class mean accuracy: 0.990650
+total mean dices:  0.991892
+total dices std: 0.058125

@@ -230,7 +230,7 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
 
             batch_margin_loss = tf.reduce_mean(margin_loss)
-            balanced_margin_loss = 3 * batch_margin_loss
+            balanced_margin_loss = 4 * batch_margin_loss
             # batch_margin_loss = tf.Print(batch_margin_loss, [batch_margin_loss])
             tf.add_to_collection('losses', balanced_margin_loss)
             tf.summary.scalar('margin_loss', balanced_margin_loss)
@@ -261,8 +261,8 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
 def default_hparams():
     """Builds an HParam object with default hyperparameters."""
     return tf.contrib.training.HParams(
-        decay_rate=0.9,
+        decay_rate=0.96,
         decay_steps=1000,
-        learning_rate=0.0005,
+        learning_rate=0.001,
         momentum=0.99
     )

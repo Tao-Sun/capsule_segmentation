@@ -38,7 +38,7 @@ import tensorflow as tf
 from python.utils import dice, accuracy_stats, connected_error_num
 import cv2
 
-HEIGHT, WIDTH = 28, 28
+HEIGHT, WIDTH = 40, 40
 
 def read_and_decode(filename_queue):
     reader = tf.TFRecordReader()

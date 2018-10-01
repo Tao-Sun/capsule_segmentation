@@ -1,0 +1,68 @@
+hippo: no pooling
+
+hippo_2: original, receptive field (3*7);
+hippo_2_1: use 80% data to train and the remained to test
+hippo_2_2: based on hippo_2, add dropout after conv2, only for caps.
+hippo_2_3: same as hippo_2, only for unet
+hippo_2_4: same as hippo_2, training on files [1, 12], only for unet
+hippo_2_5: same as hippo_2, training on files [13, 24], only for unet
+hippo_2_6: same as hippo_2, training on files [25, 36], only for unet
+hippo_2_7: same as hippo_2, training on files [37, 48], only for unet
+hippo_2_8: same as hippo_2, training on files [49, 60], only for unet
+hippo_2_9: same as hippo_2, training on files [61, 72], only for unet
+hippo_2_10: same as hippo_2, training on files [73, 84], only for unet
+hippo_2_11: same as hippo_2, training on files [85, 97], only for unet
+hippo_2_12: based on hippo_2_2, adjust W dimension
+
+hippo_3: based on original, but remove pool3 to get larger receptive field (4*12)
+hippo_3_1: remove some conv in the decoder, only for caps
+hippo_3_2: over-simplified model (performances are bad for both models so it can be ignored)
+hippo_3_3: based on hippo_3_1, add dropout after pool2, only for caps
+hippo_3_4: same as hippo_3, only for unet
+hippo_3_5: same as hippo_3, only for unet
+hippo_3_6: based on hippo_3_3, change routing ites to 5
+hippo_3_7: based on hippo_3_3, change routing ites to 4
+hippo_3_8: based on hippo_3_3, adjust W dimension
+
+hippo_4: based on original, but remove pool2 and pool3 and increase filter sizes of conv2 and conv3 to get larger
+         receptive field (4*20)
+hippo_4_1: change routing ites to 5
+hippo_4_2: change routing ites to 6
+hippo_4_3: based on hippo_4_2, add dropout after conv2.
+hippo_4_4: based on hippo_4, add dropout after conv2 (routing ites change back to 3).
+hippo_4_4_0_1: adjust W dimension of hippo_4_4, only for caps.
+hippo_4_4_1: same as hippo_4_4, training on files [1, 12], only for caps.
+hippo_4_4_1_2: adjust W dimension of hippo_4_4_1, training on files [1, 12], only for caps.
+hippo_4_4_2: same as hippo_4_4, training on files [13, 24], only for caps.
+hippo_4_4_2_2: adjust W dimension of hippo_4_4_2, training on files [13, 24], only for caps.
+hippo_4_4_3: same as hippo_4_4, training on files [25, 36], only for caps.
+hippo_4_4_3_1: adjust W dimension of hippo_4_4_3, training on files [25, 36], only for caps.
+hippo_4_4_4: same as hippo_4_4, training on files [37, 48], only for caps.
+hippo_4_4_4_1: adjust W dimension of hippo_4_4_4, training on files [37, 48], only for caps.
+hippo_4_4_5: same as hippo_4_4, training on files [49, 60], only for caps.
+hippo_4_4_5_1: adjust W dimension of hippo_4_4_5, training on files [49, 60], only for caps.
+hippo_4_4_6: same as hippo_4_4, training on files [61, 72], only for caps.
+hippo_4_4_6_1: same as hippo_4_4, training on files [61, 71], only for caps.
+hippo_4_4_6_2: adjust W dimension of hippo_4_4_6, training on files [61, 72], only for caps.
+hippo_4_4_7: same as hippo_4_4, training on files [73, 84], only for caps.
+hippo_4_4_7_1: adjust W dimension of hippo_4_4_7, training on files [73, 83], only for caps.
+hippo_4_4_7_2: adjust W dimension of hippo_4_4_7, training on files [73, 84], only for caps.
+hippo_4_4_8: same as hippo_4_4, training on files [85, 96], only for caps.
+hippo_4_4_8_1: adjust W dimension of hippo_4_4_8, training on files [85, 96], only for caps.
+hippo_4_5: same with hippo_4, only for unet
+
+hippo_5: caps only, based on hippo_4, increase receptive field (6*22) by changing filter size of conv2 from 5 to 3
+hippo_5_1: caps only, based on hippo_5, adjust W dimension
+
+hippo_6: unet, based on hippo_2, make first conv padding='VALID' and correct corresponding deonv. (2*6)
+         caps, based on hippo_4, add conv after deconv.
+
+hippo_7: unet, remove conv after deconv, comparing to hippo_6(caps).
+
+
+Conclusion:
+For better performance, there is a conv after deonv and a conv after concat in Yani's and my unet modle.
+For better performance, there is no conv after deonv and there is a conv after concat in caps model.
+For unet, drop lr every 50000 step did not increase performance.
+Fewer training examples did lower the performance. (training(0.8):testing(0.2) vs training(0.9):testing(0.1))
+Routing iteration 3 is the best for caps.
