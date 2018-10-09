@@ -42,5 +42,6 @@ def primary_caps1d(inputs, kernel_size, out_capsules, stride, padding, activatio
                 num_routing=1,
                 caller=" primary")
             activations_transposed = tf.transpose(activations, [0, 1, 3, 4, 2])  # (b, 32, 4, 20, 8)
+            print('activations shape: %s' % activations_transposed.get_shape())
 
     return activations_transposed, conv

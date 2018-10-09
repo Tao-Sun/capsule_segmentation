@@ -7,6 +7,7 @@ import python.capsnet_1d.models.capsnet_1d_hippo_5 as capsnet_1d_hippo_5
 import python.capsnet_1d.models.capsnet_1d_mnist_1 as capsnet_1d_mnist_1
 import python.capsnet_1d.models.capsnet_1d_mnist_2 as capsnet_1d_mnist_2
 import python.capsnet_1d.models.capsnet_1d_mnist_3 as capsnet_1d_mnist_3
+import python.capsnet_1d.models.capsnet_1d_mnist_4 as capsnet_1d_mnist_4
 import python.capsnet_1d.models.capsnet_1d_affnist_1 as capsnet_1d_affnist_1
 
 
@@ -29,5 +30,5 @@ def get_model(name):
         return capsnet_1d_mnist_2
     elif name == 'mnist3':
         return capsnet_1d_mnist_3
-    elif name == 'affnist1':
-        return capsnet_1d_affnist_1
+    elif name == 'mnist4':
+        return capsnet_1d_mnist_4

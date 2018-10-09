@@ -6,7 +6,7 @@ from python.layers.routing import dynamic_routing
 def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_size, name):
     """
 
-    :param inputs: (b, 32, 8, 6, 6)
+    :param inputs: (b, 32, 4, 20, 8)
     :param num_classes:
     :param activation_length:
     :param routing_ites:
@@ -42,7 +42,7 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
             input_tiled = tf.tile(tf.expand_dims(inputs_3d, -1), [1, 1, 1, num_classes * activation_length])  # (b, 32*4*20, 8, 2*64)
             print('input_tiled shape: %s' % input_tiled.get_shape())
             votes = tf.reduce_sum(input_tiled * weights_reshaped, axis=2)
-            votes_reshaped = tf.reshape(votes, [-1, in_capsules * in_height * in_width, num_classes, activation_length])  # (b, 32*4*20, 2, 64)
+            votes_reshaped = tf.reshape(votes, [-1, in_capsules * in_height * in_width, num_classes, activation_length])  # (b, 32*4*20, 2, 16)
             votes_reshaped = tf.check_numerics(votes_reshaped, message="nan or inf from: votes_reshaped in class capsules")
             print('votes_reshaped shape: %s' % votes_reshaped.get_shape())
 
@@ -58,7 +58,7 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
             # activations = tf.Print(activations, [tf.constant("class_caps_activations"), activations])
             activations = tf.check_numerics(activations, message="nan or inf from: activations in class capsules")
             coupling_coeffs = tf.check_numerics(coupling_coeffs, message="nan or inf from: coupling_coeffs in class capsules")
-            print('class capsule activations shape: %s' % votes_reshaped.get_shape())
+            print('class capsule activations shape: %s' % activations.get_shape())
             print('class capsuel coupling_coeffs shape: %s' % coupling_coeffs.get_shape())
 
     return activations, coupling_coeffs

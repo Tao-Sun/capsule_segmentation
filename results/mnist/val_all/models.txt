@@ -81,5 +81,5 @@ tf.contrib.training.HParams(
         momentum=0.99
     )
 
-all_3: 7*& (2:1)
-all_3_1: 7*& (1:1)
+all_3: 7*7 (2:1)
+all_3_1: 7*7 (1:1)
