@@ -47,27 +47,28 @@ def conv_capsule1d(inputs, kernel_size, stride, routing_ites, in_capsules, out_c
 
         with tf.variable_scope('routing'):
             coupling_coeffs_shape = tf.stack(
-                [votes_shape[0].value, in_capsules*kernel_size*kernel_size, out_capsules])  # (b*6*6, 9*32=288, 32)
+                [votes_shape[0].value, in_capsules*kernel_size*kernel_size, out_capsules])  # (b*6*6, 32*9=288, 32)
             activations, coupling_coeffs = dynamic_routing(
                 votes=votes,
                 coupling_coeffs_shape=coupling_coeffs_shape,
                 num_dims=4,
                 input_dim=in_capsules*kernel_size*kernel_size,
                 num_routing=routing_ites,
-                caller=" conv capsules")  # (b*6*6, 32, 8)
+                caller=" conv capsules")  # (b*6*6, 32, 8), (b*6*6, 32*9, 32)
 
             activations = tf.reshape(
                 activations,
                 [-1, activations.get_shape()[-2].value, spatial_size, spatial_size,
-                 activations.get_shape()[-1].value])  # (b*6*6, 9x32, 8)
+                 activations.get_shape()[-1].value])  # (b, 32, 6, 6, 8)
 
-            print('activations shape: %s' % activations.get_shape())
+            print('activations shape: %s' % activations.get_shape())  # (b, 32, 6, 6, 8)
+            print('coupling_coeffs shape: %s' % coupling_coeffs.get_shape())  # (b*6*6, 32*9, 32)
 
-        return activations
+        return activations, coupling_coeffs
 
 
 def kernel_tile(inputs, kernel, stride):
-    """ In each output position, stacks the input capsules in its receptive field.
+    """ In each output position, stacks all the input capsules in its receptive field.
 
     :param inputs: shape (?, 14, 14, 32, 8)
     :param kernel: 3
