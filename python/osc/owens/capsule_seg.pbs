@@ -1,0 +1,13 @@
+#PBS -N trackback
+#PBS -l nodes=1:ppn=12:gpus=1:default
+#PBS -l walltime=20:00:00
+#PBS -l mem=25GB
+#PBS -j oe
+
+module load python/2.7 cuda/8.0.44
+source activate py27
+cd /fs/scratch/PHS0317/projects/capsule_segmentation
+export PYTHONPATH=/fs/scratch/PHS0317/projects/capsule_segmentation
+python ./python/capsnet_1d/capsnet_1d_train.py --model=mnist5 --data_dir=./data/mnist/train_all/ --dataset=mnist --summary_dir=./checkpoints/mnist/caps/train_all_5 --file_start=0 --file_end=4 > ./logs/caps_mnist_all_5_1.log
+
+

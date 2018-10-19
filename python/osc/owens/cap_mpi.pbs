@@ -1,0 +1,8 @@
+#PBS -N trackback
+#PBS -l nodes=2:ppn=12:gpus=1:default
+#PBS -l walltime=20:00:00
+#PBS -j oe
+
+PROJECT_DIR=`pwd`
+bash $PROJECT_DIR/python/osc/interactive.sh $PROJECT_DIR
+

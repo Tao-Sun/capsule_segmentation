@@ -32,7 +32,6 @@ import os.path
 import sys
 
 import numpy as np
-import skimage.io as io
 import tensorflow as tf
 
 from python.utils import dice, accuracy_stats, connected_error_num
@@ -212,76 +211,3 @@ def save_files(save_dir, model_type, file_no, image, label, prediction, num_clas
     cv2.imwrite(image_path, image)
     cv2.imwrite(target_path, label)
     cv2.imwrite(prediction_path, prediction_img)
-
-
-if __name__ == '__main__':
-    tfrecords_filename = os.path.join(sys.argv[1], '1.tfrecords')
-    print(tfrecords_filename)
-
-    filename_queue = tf.train.string_input_producer(
-        [tfrecords_filename], num_epochs=10)
-    resized_image, resized_annotation = read_and_decode(filename_queue)
-
-    images, annotations = tf.train.shuffle_batch([resized_image, resized_annotation],
-                                                 batch_size=2,
-                                                 capacity=30,
-                                                 num_threads=2,
-                                                 min_after_dequeue=10)
-
-    init_op = tf.group(tf.global_variables_initializer(),
-                       tf.local_variables_initializer())
-
-    with tf.Session() as sess:
-
-        sess.run(init_op)
-
-        coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(coord=coord)
-
-
-        def frame(img):
-            row_range = (np.nonzero(img)[0].min(), np.nonzero(img)[0].max())
-            col_range = (np.nonzero(img)[1].min(), np.nonzero(img)[1].max())
-
-            zone = (row_range, col_range)
-            return zone
-
-        img, anno = sess.run([images, annotations])
-
-        # Let's read off 3 batches just for example
-        for i in range(1):
-            img, anno = sess.run([images, annotations])
-            print('images shape: %s' % str(img.shape))
-            print('anno shape: %s' % str(anno.shape))
-
-            # We selected the batch size of two
-            # So we should get two image pairs in each batch
-            # Let's make sure it is random
-            img1 = img[0, 0, :, :]
-            # frame1 = frame(img)
-            anno1 = anno[0, :, :]
-            frame2 = frame(anno1)
-
-            framed1 = np.where(img1[frame2[0][0]:frame2[0][1], frame2[1][0]:frame2[1][1]]>0, 1, 0)
-            print("image example:")
-            print(framed1.shape)
-            io.imshow(img1, cmap='gray')
-            io.show()
-
-            framed2 = np.where(anno1[frame2[0][0]:frame2[0][1], frame2[1][0]:frame2[1][1]]>0, 1, 0)
-            print("anno example:")
-            print(framed2.shape)
-            diff = np.subtract(framed1, framed2)
-            print('diff:')
-            print(diff)
-            io.imshow(anno1, cmap='gray')
-            io.show()
-
-            io.imshow(img[1, 0, :, :], cmap='gray')
-            io.show()
-
-            io.imshow(anno[1, :, :], cmap='gray')
-            io.show()
-
-        coord.request_stop()
-        coord.join(threads)
