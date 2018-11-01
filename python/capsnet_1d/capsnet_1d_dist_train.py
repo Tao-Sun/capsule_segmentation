@@ -127,8 +127,6 @@ def average_gradients(tower_grads):
     return average_grads
 
 
-
-
 def train(model, cluster, server):
     hparams = model.default_hparams()
 
@@ -311,9 +309,11 @@ def main(argv=None):  # pylint: disable=unused-argument
     elif FLAGS.job_name == "worker":
         model = get_model(FLAGS.model)
 
-        if tf.gfile.Exists(FLAGS.summary_dir):
-            tf.gfile.DeleteRecursively(FLAGS.summary_dir)
-        tf.gfile.MakeDirs(FLAGS.summary_dir)
+        if FLAGS.task_index == 0:
+            if tf.gfile.Exists(FLAGS.summary_dir):
+                tf.gfile.DeleteRecursively(FLAGS.summary_dir)
+            tf.gfile.MakeDirs(FLAGS.summary_dir)
+
         print("\nworker " + str(FLAGS.task_index) + " start training...\n")
         train(model, cluster, server)
 
