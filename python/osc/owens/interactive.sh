@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# This script can be taken as the test script in interactive mode.
+# It distributes a task to each machine in the cluster with mpiexec.
+# It should be called with the project dir as its 1st argument.
+
 nodes=""
 
 while IFS= read -r line
@@ -11,4 +16,5 @@ do
 done <"$PBS_NODEFILE"
 
 PROJECT_DIR=$1
-mpiexec -ppn 1 bash $PROJECT_DIR/python/osc/mpi.sh $PROJECT_DIR $nodes
+echo "nodes: $nodes"
+mpiexec -ppn 1 bash $PROJECT_DIR/python/osc/owens/mpi.sh $PROJECT_DIR $nodes

@@ -6,6 +6,10 @@ import subprocess
 
 FLAGS=None
 
+"""
+Start the ps or worker host in the tensorflow cluster.
+"""
+
 def _get_hosts(nodes, num_ps_hosts, hosts_domain, ps_port, worker_port):
     nodes = list(set(nodes.split(',')))
 
