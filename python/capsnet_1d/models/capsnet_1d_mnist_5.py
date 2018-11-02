@@ -7,7 +7,9 @@ from python.layers.convolution import conv2d, deconv
 from python.layers.primary_capsules import primary_caps1d
 from python.layers.conv_capsules import conv_capsule1d
 from python.layers.class_capsules import class_caps1d
+from python.layers.traceback import trace_labels, trace_conv_cond_prob
 import python.data.affnist.affnist_input as affnist_input
+
 
 import numpy as np
 
@@ -134,52 +136,12 @@ def _decode(conv_activations, primary_caps_activations, class_coupling_coeffs, c
     # caps_probs_tiled = tf.check_numerics(caps_probs_tiled, message="nan or inf from: caps_probs_tiled")
 
     print("\ntraceback layer:")
-    print('class coupling_coeffs shape: %s' % class_coupling_coeffs.get_shape())  # (b, 32*6*6, 2)
     activations_shape = conv_activations.get_shape()  # (b, 32, 4, 20, 8),
     conv_capsule_num, height, width = activations_shape[1].value, activations_shape[2].value, activations_shape[3].value
-    cls_coupling_coeff_reshaped = tf.reshape(class_coupling_coeffs, [batch_size, conv_capsule_num, height, width, num_classes])  # (b, 32, 6, 6, 2)
-    cls_coupling_coeff_expanded = tf.expand_dims(tf.expand_dims(cls_coupling_coeff_reshaped, 4), 5)  # (b, 32, 6, 6, 1, 1, 2)
-    cls_coupling_coeff_transposed = tf.transpose(cls_coupling_coeff_expanded, perm=[0, 2, 3, 4, 5, 1, 6])  # (b, 6, 6, 1, 1, 32, 2)
-    cls_coupling_coeff_tiled = tf.tile(cls_coupling_coeff_transposed,
-                                   [1, 1, 1, conv_kernel_size, conv_kernel_size, 1, 1])  # (b, 6, 6, 3, 3, 32, 2)
-    print('cls_coupling_coeff_tiled shape: %s' % cls_coupling_coeff_tiled.get_shape())
-
-    print('conv coupling_coeffs shape: %s' % conv_coupling_coeffs.get_shape())  # (b*6*6, 32*3*3, 32)
-    conv_coupling_coeff_reshaped = tf.reshape(conv_coupling_coeffs,
-                                             [batch_size, height, width, primary_out_capsules,
-                                              conv_kernel_size, conv_kernel_size, conv_capsule_num])  #(b, 6, 6, 32, 3, 3, 32)
-    conv_coupling_coeff_transposed = tf.transpose(conv_coupling_coeff_reshaped, perm=[0, 1, 2, 4, 5, 3, 6])  #(b, 6, 6, 3, 3, 32, 32)
-    print('conv_coupling_coeff_transposed shape: %s' % conv_coupling_coeff_transposed.get_shape())  #(b, 6, 6, 3, 3, 32, 32)
-
-    primary_cond_prob_stacked = tf.matmul(conv_coupling_coeff_transposed, cls_coupling_coeff_tiled)  #(b, 6, 6, 3, 3, 32, 2)
-    primary_cond_prob_stacked = tf.reshape(primary_cond_prob_stacked,
-                                            [batch_size, height, width, conv_kernel_size*conv_kernel_size,
-                                             primary_out_capsules*num_classes])  # (b, 6, 6, 3*3, 32*2)
-    primary_cond_prob_stacked = tf.transpose(primary_cond_prob_stacked, perm=[0, 1, 2, 4, 3])  # (b, 6, 6, 32*2, 3*3)
-    print('primary_cond_prob_stacked shape: %s' % primary_cond_prob_stacked.get_shape())
-
-    tile_filter = np.zeros(shape=[conv_kernel_size, conv_kernel_size, 1,
-                                  1, conv_kernel_size*conv_kernel_size], dtype=np.float32)
-    for i in range(conv_kernel_size):
-        for j in range(conv_kernel_size):
-            tile_filter[i, j, 0, 0, i*conv_kernel_size+j] = 1.0  # (3, 3, 1, 1, 9)
-    # (3, 3, 1, 9, 1)
-    tile_filter_op = tf.constant(tile_filter, dtype=tf.float32)
-    out_h = (height - 1) * conv_stride + conv_kernel_size
-    out_w = (width - 1) * conv_stride + conv_kernel_size
-    output_shape = tf.constant([batch_size, out_h, out_w, primary_out_capsules*num_classes, 1], dtype=tf.int32)
-    primary_cond_prob = tf.nn.conv3d_transpose(primary_cond_prob_stacked, tile_filter_op, output_shape,
-                                               strides=[1, conv_stride, conv_stride, 1, 1], padding='VALID')  # (b, 14, 14, 32*2, 1)
-    print('primary_cond_prob shape: %s' % primary_cond_prob.get_shape())
-    primary_cond_prob_shape = primary_cond_prob.get_shape()  # (b, 14, 14, 32*2, 1)
-    height, width = primary_cond_prob_shape[1].value, primary_cond_prob_shape[2].value
-    primary_cond_prob_reshaped = tf.reshape(primary_cond_prob, [batch_size, height, width, primary_out_capsules, num_classes])  # (b, 14, 14, 32, 2)
-    primary_cond_prob_transposed = tf.transpose(primary_cond_prob_reshaped, perm=[0, 3, 1, 2, 4])  # (b, 32, 14, 14, 2)
-
-    capsule_probs = tf.norm(primary_caps_activations, axis=-1)  # # (b, 32, 14, 14, 8) -> (b, 32, 14, 14)
-    caps_probs_tiled = tf.tile(tf.expand_dims(capsule_probs, -1), [1, 1, 1, 1, num_classes])  # (b, 32, 14, 14, 2)
-
-    primary_labels = tf.reduce_sum(primary_cond_prob_transposed*caps_probs_tiled, 1)  # (b, 4, 20, 2)
+    primary_cond_prob = trace_conv_cond_prob(class_coupling_coeffs, conv_coupling_coeffs,
+                                             height, width, conv_kernel_size, conv_stride,
+                                             primary_out_capsules, conv_capsule_num)
+    primary_labels = trace_labels(primary_caps_activations, primary_cond_prob, num_classes)
 
     print('primary_caps_labels shape: %s' % primary_labels.get_shape())
     # class_labels = tf.Print(class_labels, [tf.constant("class_labels"), class_labels])
