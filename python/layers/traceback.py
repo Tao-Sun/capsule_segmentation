@@ -77,7 +77,6 @@ def trace_conv_cond_prob(prev_cond_prob, conv_coupling_coeffs,
     return cond_prob
 
 
-
 def _get_stacked_conv_cond_prob(prev_cond_prob, conv_coupling_coeffs,
                                 height, width, kernel_size,
                                 prev_capsule_num, capsule_num):
