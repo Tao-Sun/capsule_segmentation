@@ -33,7 +33,6 @@ import sys
 
 import nibabel as nib
 import numpy as np
-import skimage.io as io
 import tensorflow as tf
 from python.utils import dice_ratio
 
@@ -105,9 +104,9 @@ def inputs(split, data_dir, batch_size, file_start, file_end, num_classes=2):
     file_num = file_end - file_start + 1
     file_names = None
     if split == 'train':
-        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in (range(13, file_end + 1))]
+        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in (range(1, 99))]
     elif split == 'test':
-        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(1, 13)]
+        file_names = [os.path.join(data_dir, str(i) + '.tfrecords') for i in range(99, file_end+1)]
 
     with tf.name_scope('input'):
         shuffle = None
@@ -198,55 +197,3 @@ def save_nii(target, prediction, save_dir, file_no):
                                      np.eye(4))
     nib.save(target_nii, os.path.join(save_dir, 't_' + str(file_no) + '.nii.gz'))
     nib.save(prediction_nii, os.path.join(save_dir, 'p_' + str(file_no) + '.nii.gz'))
-
-if __name__ == '__main__':
-    tfrecords_filename = os.path.join(sys.argv[1], 'train.tfrecords')
-    print(tfrecords_filename)
-
-    filename_queue = tf.train.string_input_producer(
-        [tfrecords_filename], num_epochs=10)
-    resized_image, resized_annotation = read_and_decode(filename_queue)
-
-    images, annotations = tf.train.shuffle_batch([resized_image, resized_annotation],
-                                                 batch_size=2,
-                                                 capacity=30,
-                                                 num_threads=2,
-                                                 min_after_dequeue=10)
-
-    init_op = tf.group(tf.global_variables_initializer(),
-                       tf.local_variables_initializer())
-
-    with tf.Session() as sess:
-
-        sess.run(init_op)
-
-        coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(coord=coord)
-
-        img, anno = sess.run([images, annotations])
-
-        # Let's read off 3 batches just for example
-        for i in range(4):
-            img, anno = sess.run([images, annotations])
-            print(anno.shape)
-
-            print('current batch')
-
-            # We selected the batch size of two
-            # So we should get two image pairs in each batch
-            # Let's make sure it is random
-
-            io.imshow(img[0, :, :], cmap='gray')
-            io.show()
-
-            io.imshow(anno[0, :, :], cmap='gray')
-            io.show()
-
-            io.imshow(img[1, :, :], cmap='gray')
-            io.show()
-
-            io.imshow(anno[1, :, :], cmap='gray')
-            io.show()
-
-        coord.request_stop()
-        coord.join(threads)

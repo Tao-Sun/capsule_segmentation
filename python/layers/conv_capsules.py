@@ -33,7 +33,8 @@ def conv_capsule1d(inputs, kernel_size, stride, routing_ites, in_capsules, out_c
         # Such that we can later multiple with the transformation matrices to generate the votes.
         inputs_tiled = kernel_tile(inputs, kernel_size, stride)  # (b, 14, 14, 32, 8) -> (b, 6, 6, 3x3=9, 32x8=256)
         print('inputs_tiled shape: %s' % inputs_tiled.get_shape())
-        spatial_size = inputs_tiled.get_shape()[1].value
+        spatial_size_1 = inputs_tiled.get_shape()[1].value
+        spatial_size_2 = inputs_tiled.get_shape()[2].value
 
         inputs_tiled = tf.reshape(
             inputs_tiled,
@@ -58,7 +59,7 @@ def conv_capsule1d(inputs, kernel_size, stride, routing_ites, in_capsules, out_c
 
             activations = tf.reshape(
                 activations,
-                [-1, activations.get_shape()[-2].value, spatial_size, spatial_size,
+                [-1, activations.get_shape()[-2].value, spatial_size_1, spatial_size_2,
                  activations.get_shape()[-1].value])  # (b, 32, 6, 6, 8)
 
             print('activations shape: %s' % activations.get_shape())  # (b, 32, 6, 6, 8)

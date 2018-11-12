@@ -233,7 +233,11 @@ def train(model):
             # print(format_str % (datetime.now(), step))
 
             start_time = time.time()
-            _, loss_value, lr_value = sess.run([train_op, loss, learning_rate])
+            try:
+                _, loss_value, lr_value = sess.run([train_op, loss, learning_rate])
+            except tf.errors.InvalidArgumentError as e:
+                print('InvalidArgumentError occured: \n {}'.format(e))
+                raise e
             duration = time.time() - start_time
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'

@@ -35,41 +35,55 @@ def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routi
           A tensor with same shape as input (rank 3) for output of this layer.
         """
         with tf.name_scope('norm_non_linearity'):
-            input_tensor = tf.check_numerics(input_tensor, message="nan or inf from: norm in routing:" + caller)
+            # input_tensor = tf.check_numerics(input_tensor, message="nan or inf from: norm in routing:" + caller)
             # input_tensor = tf.Print(input_tensor, [input_tensor], summarize=20, message="input_tensor")
             print("input_tensor shape: %s" % input_tensor.get_shape())
 
-            norm = tf.norm(input_tensor, axis=2, keep_dims=True)
-            print("norm shape: %s" % norm.get_shape())
-            norm = tf.check_numerics(norm, message="nan or inf from: norm in routing:" + caller)
-            # norm = tf.Print(norm, [norm], summarize=20, message="norm")
-            norm_squared = norm * norm  # tf.square(norm)
-            norm_squared = tf.check_numerics(norm_squared, message="nan or inf from: norm_squared in routing:" + caller)
+            # norm = tf.norm(input_tensor, axis=2, keep_dims=True)
+            # print("norm shape: %s" % norm.get_shape())
+            # norm = tf.check_numerics(norm, message="nan or inf from: norm in routing:" + caller)
+            # # norm = tf.Print(norm, [norm], summarize=20, message="norm")
+            # norm_squared = norm * norm  # tf.square(norm)
+            # norm_squared = tf.check_numerics(norm_squared, message="nan or inf from: norm_squared in routing:" + caller)
             # norm_squared = tf.Print(norm_squared, [norm_squared], summarize=20, message="norm_squared")
 
+            norm_squared = tf.reduce_sum(tf.square(input_tensor), axis=2, keep_dims=True)
             normalized_input = tf.nn.l2_normalize(input_tensor, dim=2)
-            normalized_input = tf.check_numerics(normalized_input, message="nan or inf from: normalized_input in routing:" + caller)
+            # normalized_input = tf.check_numerics(normalized_input, message="nan or inf from: normalized_input in routing:" + caller)
             # normalized_input = tf.Print(norm, [normalized_input], summarize=20, message="norm")
             # print('norm shape: %s' % norm.get_shape())
             squash = normalized_input * (norm_squared / (1 + norm_squared))
-            squash = tf.check_numerics(squash, message="nan or inf from: squash in routing:" + caller)
+            # squash = tf.check_numerics(squash, message="nan or inf from: squash in routing:" + caller)
             return squash
 
     def _body(i, logits, activations):
         """Routing while loop."""
         # route: [batch, input_dim, output_dim, ...]
+
+        logits = tf.check_numerics(logits, message="nan or inf from: logits in routing:")
+        print('logits shape: %s' % logits.get_shape())
+        # logits_exp = tf.exp(logits-tf.reduce_max(logits, axis=2, keep_dims=True))
+        # print('logits_exp shape: %s' % logits_exp.get_shape())
+        # logits_exp = tf.check_numerics(logits_exp, message="nan or inf from: logits_exp in _body:")
+        # logits_sum = tf.reduce_sum(logits_exp, axis=2, keep_dims=True)
+        # logits_sum = tf.Print(logits_sum, [tf.where(tf.is_inf(logits_sum))], summarize=1)
+        # logits_sum = tf.Print(logits_sum, [tf.where(tf.is_nan(logits_sum))], summarize=1)
+        # print('logits_sum shape: %s' % logits_sum.get_shape())
+        # logits_sum = tf.check_numerics(logits_sum, message="nan or inf from: logits_sum in _body:")
+        # route = logits_exp / logits_sum
+        # print('route shape: %s' % route.get_shape())
+        # route = tf.nn.softmax(logits-tf.reduce_max(logits, axis=2, keep_dims=True), dim=2)
         route = tf.nn.softmax(logits, dim=2)
-        # route = tf.check_numerics(route, message="nan or inf from: route in routing:"+p)
-        # route = tf.nn.softmax(logits, dim=2)
+        route = tf.check_numerics(route, message="nan or inf from: route in _body:"+str(i))
         # route_print = tf.Print(route, [i, votes, route])
         # preactivate_unrolled = route_print * votes_trans
         preactivate_unrolled = route * votes_trans
-        # preactivate_unrolled = tf.check_numerics(preactivate_unrolled, message="nan or inf from: preactivate_unrolled in routing:" + p)
+        preactivate_unrolled = tf.check_numerics(preactivate_unrolled, message="nan or inf from: preactivate_unrolled in routing:")
         preact_trans = tf.transpose(preactivate_unrolled, r_t_shape)
         preactivate = tf.reduce_sum(preact_trans, axis=1)
 
         activation = squash(preactivate)
-        # activation = tf.check_numerics(activation, message="nan or inf from: activation in routing:" + p)
+        activation = tf.check_numerics(activation, message="nan or inf from: activation in routing:"+str(i))
         activations = activations.write(i, activation)
 
         # distances: [batch, input_dim, output_dim]
@@ -78,10 +92,10 @@ def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routi
         tile_shape[1] = input_dim
         act_replicated = tf.tile(act_3d, tile_shape)
 
-        distances = tf.reduce_sum(votes * act_replicated, axis=3)
-        # distances = tf.check_numerics(distances, message="nan or inf from: distances in routing:" + p)
+        distances = tf.reduce_sum(votes*act_replicated, axis=3)
+        distances = tf.check_numerics(distances, message="nan or inf from: distances in routing:"+str(i))
         logits += distances
-        return (i + 1, logits, activations)
+        return (i+1, logits, activations)
 
     activations = tf.TensorArray(
         dtype=tf.float32, size=num_routing, clear_after_read=False)
@@ -95,6 +109,9 @@ def dynamic_routing(votes, coupling_coeffs_shape, num_dims, input_dim, num_routi
         swap_memory=True)
 
     activation = activations.read(num_routing - 1)
-    activation = tf.check_numerics(activation, message="nan or inf from: activation in routing:" + caller)
+    # try:
+    #     activation = tf.check_numerics(activation, message="nan or inf from: activation in routing:" + caller)
+    # except BaseException:
+    #     activation = tf.Print(activation, [activation], summarize=184320, message="activation")
 
     return activation, logits

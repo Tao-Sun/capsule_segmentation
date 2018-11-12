@@ -18,4 +18,3 @@ done <"$PBS_NODEFILE"
 PROJECT_DIR=$1
 echo "nodes: $nodes"
 mpiexec -ppn 1 bash $PROJECT_DIR/python/osc/owens/mpi.sh $PROJECT_DIR $nodes
-# perf-report --np=5 bash $PROJECT_DIR/python/osc/owens/mpi.sh $PROJECT_DIR $nodes
