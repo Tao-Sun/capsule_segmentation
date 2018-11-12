@@ -1,3 +1,0 @@
-unet 7:
-mean dices:  0.872870
-dices std: 0.026268

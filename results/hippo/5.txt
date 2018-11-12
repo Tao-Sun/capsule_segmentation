@@ -1,7 +1,0 @@
-caps 5:
-mean dices:  0.879527
-dices std: 0.019757
-
-caps 5_1:
-mean dices:  0.875013
-dices std: 0.021765

@@ -2,8 +2,8 @@
 # qsub -d /users/PHS0317/ohu0516/scratch/projects/capsule_segmentation ./python/osc/owens/cap_mpi.pbs
 
 #PBS -N traceback
-#PBS -l nodes=8:ppn=28:gpus=1:default
-#PBS -l walltime=20:00:00
+#PBS -l nodes=2:ppn=28:gpus=2:default
+#PBS -l walltime=1:00:00
 #PBS -j oe
 
 PROJECT_DIR=$PBS_O_INITDIR
