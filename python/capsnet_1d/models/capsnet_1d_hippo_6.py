@@ -98,7 +98,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=False, training=False,
             primary_caps_activations,
             kernel_size=conv_kernel_size, stride=conv_stride, routing_ites=3,
             in_capsules=primary_out_capsules, out_capsules=conv_out_capsules,
-            activation_length=8, name="conv_caps"
+            activation_length=8, training=training, name="conv_caps"
         )  # (b, 32, 6, 6, 8), (b*6*6, 32*9, 32)
         conv_caps_activations = tf.check_numerics(conv_caps_activations,
                                                   message="nan or inf from: conv_caps_activations")
@@ -107,7 +107,7 @@ def inference(inputs, num_classes, routing_ites=3, remake=False, training=False,
         class_caps_activations, class_coupling_coeffs = class_caps1d(
             conv_caps_activations,
             num_classes=num_classes, activation_length=16, routing_ites=routing_ites,
-            batch_size=batch_size, name='class_capsules')
+            batch_size=batch_size, training=training, name='class_capsules')
         # class_coupling_coeffs = tf.Print(class_coupling_coeffs, [class_coupling_coeffs], summarize=50)
         class_caps_activations = tf.check_numerics(class_caps_activations,
                                                    message="nan or inf from: class_caps_activations")
@@ -288,7 +288,7 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
 
             batch_margin_loss = tf.reduce_mean(margin_loss)
-            balanced_margin_loss = 3 * batch_margin_loss
+            balanced_margin_loss = 10 * batch_margin_loss
             # batch_margin_loss = tf.Print(batch_margin_loss, [batch_margin_loss])
             tf.add_to_collection('losses', balanced_margin_loss)
             tf.summary.scalar('margin_loss', balanced_margin_loss)

@@ -52,13 +52,14 @@ def inference(inputs, num_classes, routing_ites=3, remake=False, training=False,
         print('pool1 shape: %s' % pool1.get_shape())
         # pool1_dropout = tf.layers.dropout(pool1, 0.5, training=training, name='pool1_dropout')
 
-        # conv2 = conv2d(
-        #     pool1,
-        #     kernel=3, out_channels=64, stride=1, padding='VALID',
-        #     activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
-        #     name='relu_conv2'
-        # )
-        # print('conv2 shape: %s' % conv2.get_shape())
+        conv2 = conv2d(
+            pool1,
+            kernel=3, out_channels=64, stride=1, padding='VALID',
+            activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
+            name='relu_conv2'
+        )
+        print('conv2 shape: %s' % conv2.get_shape())
+        conv2_dropout = tf.layers.dropout(conv2, 0.5, training=training, name='conv2_dropout')
         # pool2 = tf.nn.max_pool(
         #     conv2,
         #     ksize=[1, 1, 2, 2], strides=[1, 1, 2, 2],
@@ -84,40 +85,28 @@ def inference(inputs, num_classes, routing_ites=3, remake=False, training=False,
         print("\nprimary layer:")
         primary_out_capsules = 64
         primary_caps_activations, _ = primary_caps1d(
-            pool1,
-            kernel_size=3, out_capsules=primary_out_capsules, stride=1,
+            conv2_dropout,
+            kernel_size=4, out_capsules=primary_out_capsules, stride=2,
             padding='VALID', activation_length=3, name='primary_caps'
         )  # (b, 32, 4, 20, 8)
         # primary_caps_activations = tf.check_numerics(primary_caps_activations,
         #                                              message="nan or inf from: primary_caps_activations")
 
-        print("\nconvolutional capsule layer 1:")
-        conv_out_capsules_1 = 32
-        conv_kernel_size_1, conv_stride_1 = 4, 2
-        conv_caps_activations_1, conv_coupling_coeffs_1 = conv_capsule1d(
+        print("\nconvolutional capsule layer:")
+        conv_out_capsules = 24
+        conv_kernel_size, conv_stride = 3, 1
+        conv_caps_activations, conv_coupling_coeffs = conv_capsule1d(
             primary_caps_activations,
-            kernel_size=conv_kernel_size_1, stride=conv_stride_1, routing_ites=3,
-            in_capsules=primary_out_capsules, out_capsules=conv_out_capsules_1,
-            activation_length=4, training=training, name="conv_caps_1"
+            kernel_size=conv_kernel_size, stride=conv_stride, routing_ites=3,
+            in_capsules=primary_out_capsules, out_capsules=conv_out_capsules,
+            activation_length=8, training=training, name="conv_caps"
         )  # (b, 32, 6, 6, 8), (b*6*6, 32*9, 32)
-        conv_caps_activations_1 = tf.check_numerics(conv_caps_activations_1,
-                                                  message="nan or inf from: conv_caps_activations_1")
-
-        print("\nconvolutional capsule layer 2:")
-        conv_out_capsules_2 = 24
-        conv_kernel_size_2, conv_stride_2 = 3, 1
-        conv_caps_activations_2, conv_coupling_coeffs_2 = conv_capsule1d(
-            conv_caps_activations_1,
-            kernel_size=conv_kernel_size_2, stride=conv_stride_2, routing_ites=3,
-            in_capsules=conv_out_capsules_1, out_capsules=conv_out_capsules_2,
-            activation_length=8, training=training, name="conv_caps_2"
-        )  # (b, 32, 6, 6, 8), (b*6*6, 32*9, 32)
-        conv_caps_activations_2 = tf.check_numerics(conv_caps_activations_2,
-                                                  message="nan or inf from: conv_caps_activations_2")
+        conv_caps_activations = tf.check_numerics(conv_caps_activations,
+                                                  message="nan or inf from: conv_caps_activations")
 
         print("\nclass capsule layer:")
         class_caps_activations, class_coupling_coeffs = class_caps1d(
-            conv_caps_activations_2,
+            conv_caps_activations,
             num_classes=num_classes, activation_length=16, routing_ites=routing_ites,
             batch_size=batch_size, training=training, name='class_capsules')
         # class_coupling_coeffs = tf.Print(class_coupling_coeffs, [class_coupling_coeffs], summarize=50)
@@ -131,69 +120,14 @@ def inference(inputs, num_classes, routing_ites=3, remake=False, training=False,
         else:
             remakes_flatten = None
 
-        print("\ntraceback layer 1:")
-        conv_activations_2_shape = conv_caps_activations_2.get_shape()  # (b, 32, 4, 20, 8),
-        conv_height_2, conv_width_2 = conv_activations_2_shape[2].value, conv_activations_2_shape[3].value
-        conv_1_cond_prob = trace_conv_cond_prob(class_coupling_coeffs, conv_coupling_coeffs_2,
-                                                conv_height_2, conv_width_2, conv_kernel_size_2, conv_stride_2,
-                                                conv_out_capsules_2, conv_out_capsules_1)
-        print("\ntraceback layer 2:")
-        conv_activations_1_shape = conv_caps_activations_1.get_shape()  # (b, 32, 4, 20, 8),
-        conv_height_1, conv_width_1 = conv_activations_1_shape[2].value, conv_activations_1_shape[3].value
-        primary_cond_prob = trace_conv_cond_prob(conv_1_cond_prob, conv_coupling_coeffs_1,
-                                                 conv_height_1, conv_width_1, conv_kernel_size_1, conv_stride_1,
-                                                 conv_out_capsules_1, primary_out_capsules)
-
-        primary_labels = trace_labels(primary_caps_activations, primary_cond_prob, num_classes)
-
-        print('primary_caps_labels shape: %s' % primary_labels.get_shape())
-        # class_labels = tf.Print(class_labels, [tf.constant("class_labels"), class_labels])
-        # class_labels = tf.check_numerics(class_labels, message="nan or inf from: class_labels")
-        # primary_labels = tf.reduce_sum(caps_probs_tiled, 1)
-
-        print("\ndeconv layers:")
-        primary_conv = conv2d(
-            tf.transpose(primary_labels, perm=[0, 3, 1, 2]),
-            kernel=3, out_channels=256, stride=1, padding='SAME',
-            activation_fn=tf.nn.relu, name='primary_conv'
-        )
-        print('primary_conv shape: %s' % primary_conv.get_shape())
-
-        deconv1 = deconv(
-            primary_conv,
-            kernel=3, out_channels=128, stride=1, data_format='NCHW',
-            activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
-            name='deconv1'
-        )
-        print('deconv2 shape: %s' % deconv1.get_shape())
-        concat1 = tf.concat([pool1, deconv1], axis=1, name='concat1')
-        # dropout2 = tf.layers.dropout(concat2, 0.5, training=training, name='dropout2')
-        concat1_conv = conv2d(
-            concat1,
-            kernel=3, out_channels=128, stride=1, padding='SAME',
-            activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
-            name='concat1_conv'
-        )
-        print('deconv1_conv shape: %s' % concat1_conv.get_shape())
-
-        deconv2 = deconv(
-            concat1_conv,
-            kernel=4, out_channels=128, stride=2, data_format='NCHW',
-            activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
-            name='deconv2'
-        )
-        print('deconv2 shape: %s' % deconv2.get_shape())
-
-        class_conv = conv2d(
-            deconv2,
-            kernel=3, out_channels=num_classes, stride=1, padding='VALID',
-            name='class_conv'
-        )
-        print('class_conv shape: %s' % class_conv.get_shape())
-
-        label_logits = tf.transpose(class_conv, perm=[0, 2, 3, 1])
-        print('label_logits shape: %s' % label_logits.get_shape())
-        # label_logits = tf.Print(label_logits, [tf.constant("label_logits"), label_logits])
+        label_logits = _decode(
+            conv_caps_activations, primary_caps_activations,
+            class_coupling_coeffs, conv_coupling_coeffs,
+            conv_kernel_size, conv_stride, primary_out_capsules,
+            num_classes=num_classes, batch_size=batch_size,
+            conv1=conv1, conv2=conv2, pool1=pool1,training=training)
+        # label_logits = tf.Print(label_logits, [tf.constant("label_logits"), label_logits[0]], summarize=100)
+        # label_logits = tf.check_numerics(label_logits, message="nan or inf from: label_logits")
 
         labels2d = tf.argmax(label_logits, axis=3)
         labels2d_expanded = tf.expand_dims(labels2d, -1)
@@ -218,6 +152,89 @@ def _remake(class_caps_activations, num_pixels):
         biases_initializer=tf.constant_initializer(0.1))
 
     return remakes_flatten  # (b, 1344)
+
+
+def _decode(conv_activations, primary_caps_activations, class_coupling_coeffs, conv_coupling_coeffs,
+            conv_kernel_size, conv_stride, primary_out_capsules, num_classes, batch_size,
+            conv1, conv2, pool1, training):
+    # capsule_probs = tf.norm(activations, axis=-1)  # # (b, 32, 4, 20, 8) -> (b, 32, 4, 20)
+    # caps_probs_tiled = tf.tile(tf.expand_dims(class_coupling_coeffs, 1), [1, 1, 1, 1, num_classes])  # (b, 32, 4, 20, 2)
+    # caps_probs_tiled = tf.check_numerics(caps_probs_tiled, message="nan or inf from: caps_probs_tiled")
+
+    print("\ntraceback layer:")
+    activations_shape = conv_activations.get_shape()  # (b, 32, 4, 20, 8),
+    conv_capsule_num, height, width = activations_shape[1].value, activations_shape[2].value, activations_shape[3].value
+    primary_cond_prob = trace_conv_cond_prob(class_coupling_coeffs, conv_coupling_coeffs,
+                                             height, width, conv_kernel_size, conv_stride,
+                                             conv_capsule_num, primary_out_capsules)
+    primary_labels = trace_labels(primary_caps_activations, primary_cond_prob, num_classes)
+
+    print('primary_caps_labels shape: %s' % primary_labels.get_shape())
+    # class_labels = tf.Print(class_labels, [tf.constant("class_labels"), class_labels])
+    # class_labels = tf.check_numerics(class_labels, message="nan or inf from: class_labels")
+    # primary_labels = tf.reduce_sum(caps_probs_tiled, 1)
+
+    print("\ndeconv layers:")
+    primary_conv = conv2d(
+        tf.transpose(primary_labels, perm=[0, 3, 1, 2]),
+        kernel=3, out_channels=256, stride=1, padding='SAME',
+        activation_fn=tf.nn.relu, name='primary_conv'
+    )
+    print('primary_conv shape: %s' % primary_conv.get_shape())
+
+    deconv1 = deconv(
+        primary_conv,
+        kernel=4, out_channels=128, stride=2, data_format='NCHW',
+        activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
+        name='deconv1'
+    )
+    print('deconv1 shape: %s' % deconv1.get_shape())
+    concat1 = tf.concat([conv2, deconv1], axis=1, name='concat1')
+    concat1_dropout1 = tf.layers.dropout(concat1, 0.5, training=training, name='concat1_dropout1')
+    concat1_conv = conv2d(
+        concat1_dropout1,
+        kernel=3, out_channels=128, stride=1, padding='SAME',
+        activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
+        name='concat1_conv'
+    )
+    print('concat1_conv shape: %s' % concat1_conv.get_shape())
+
+    deconv2 = deconv(
+        concat1_conv,
+        kernel=3, out_channels=128, stride=1, data_format='NCHW',
+        activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
+        name='deconv2'
+    )
+    print('deconv2 shape: %s' % deconv2.get_shape())
+    concat2 = tf.concat([pool1, deconv2], axis=1, name='concat2')
+    # concat2_dropout = tf.layers.dropout(concat2, 0.5, training=training, name='concat2_dropout')
+    concat2_conv = conv2d(
+        concat2,
+        kernel=3, out_channels=128, stride=1, padding='SAME',
+        activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
+        name='concat2_conv'
+    )
+    print('deconv2_conv shape: %s' % concat2_conv.get_shape())
+
+    deconv3 = deconv(
+        concat2_conv,
+        kernel=4, out_channels=128, stride=2, data_format='NCHW',
+        activation_fn=tf.nn.relu, normalizer_fn=tf.contrib.layers.batch_norm,
+        name='deconv3'
+    )
+    print('deconv3 shape: %s' % deconv3.get_shape())
+
+    class_conv = conv2d(
+        deconv3,
+        kernel=3, out_channels=num_classes, stride=1, padding='VALID',
+        name='class_conv'
+    )
+    print('class_conv shape: %s' % class_conv.get_shape())
+
+    label_logits = tf.transpose(class_conv, perm=[0, 2, 3, 1])
+    print('label_logits shape: %s' % label_logits.get_shape())
+    # label_logits = tf.Print(label_logits, [tf.constant("label_logits"), label_logits])
+    return label_logits
 
 
 def _margin_loss(labels, raw_logits, margin=0.4, downweight=0.5):
@@ -272,7 +289,7 @@ def loss(images, labels2d, class_caps_activations, remakes_flatten, label_logits
             margin_loss = _margin_loss(one_hot_label_class, class_caps_logits)
 
             batch_margin_loss = tf.reduce_mean(margin_loss)
-            balanced_margin_loss = 20 * batch_margin_loss
+            balanced_margin_loss = 10 * batch_margin_loss
             # batch_margin_loss = tf.Print(batch_margin_loss, [batch_margin_loss])
             tf.add_to_collection('losses', balanced_margin_loss)
             tf.summary.scalar('margin_loss', balanced_margin_loss)
