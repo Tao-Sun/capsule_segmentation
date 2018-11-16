@@ -1,0 +1,11 @@
+# call with the following command:
+# qsub -d /fs/scratch/PHS0317/projects/capsule_segmentation ./osc/owens/cap_mpi_1.pbs
+
+#PBS -N traceback
+#PBS -l nodes=10:ppn=28:gpus=1:default
+#PBS -l walltime=50:00:00
+#PBS -j oe
+
+PROJECT_DIR=$PBS_O_INITDIR
+echo "project dir: $PROJECT_DIR"
+bash $PROJECT_DIR/osc/owens/interactive_1.sh $PROJECT_DIR

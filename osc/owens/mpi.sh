@@ -9,4 +9,4 @@ PROJECT_DIR=$1
 cd $PROJECT_DIR
 
 export PYTHONPATH=$PROJECT_DIR
-python -u $PROJECT_DIR/python/osc/mpi.py  --nodes=$2 --script=$PROJECT_DIR/python/capsnet_1d/capsnet_1d_dist_train.py --script_params="--model=hippo6 --data_dir=./data/hippo/ --dataset=hippo --summary_dir=./checkpoints/hippo/caps/train_6_1_9 --file_start=1 --file_end=110 --num_classes=2" --log_file=$PROJECT_DIR/logs/caps_hippo_6_1_9.log
+python -u $PROJECT_DIR/osc/mpi.py  --nodes=$2 --script=$PROJECT_DIR/python/capsnet_1d/capsnet_1d_dist_train.py --script_params="--model=hippo8 --data_dir=./data/hippo/ --dataset=hippo --summary_dir=./checkpoints/hippo/caps/train_8_3_9 --file_start=1 --file_end=110 --num_classes=2" --log_file=$PROJECT_DIR/logs/caps_hippo_8_3_9.log

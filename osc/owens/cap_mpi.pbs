@@ -1,5 +1,5 @@
 # call with the following command:
-# qsub -d /users/PHS0317/ohu0516/scratch/projects/capsule_segmentation ./python/osc/owens/cap_mpi.pbs
+# qsub -d /users/PHS0317/ohu0516/scratch/projects/capsule_segmentation ./osc/owens/cap_mpi.pbs
 
 #PBS -N traceback
 #PBS -l nodes=5:ppn=28:gpus=1:default
@@ -8,5 +8,5 @@
 
 PROJECT_DIR=$PBS_O_INITDIR
 echo "project dir: $PROJECT_DIR"
-bash $PROJECT_DIR/python/osc/owens/interactive.sh $PROJECT_DIR
+bash $PROJECT_DIR/osc/owens/interactive.sh $PROJECT_DIR
 
