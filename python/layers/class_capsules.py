@@ -3,7 +3,7 @@ import tensorflow as tf
 from python.layers.routing import dynamic_routing
 
 
-def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_size, name):
+def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_size, training, name):
     """
 
     :param inputs: (b, 32, 4, 20, 8)
@@ -16,6 +16,7 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
     """
 
     # inputs = tf.check_numerics(inputs, message="nan or inf from: inputs in class capsules")
+    print('inputs shape: %s' % inputs.get_shape())
     inputs_shape = inputs.get_shape()  # (b, 32, 4, 20, 8)
     in_capsules = inputs_shape[1].value
     in_height, in_width = inputs_shape[2].value, inputs_shape[3].value
@@ -41,6 +42,7 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
         with tf.name_scope('Wx_plus_b'):
             input_tiled = tf.tile(tf.expand_dims(inputs_3d, -1), [1, 1, 1, num_classes*activation_length])  # (b, 32*4*20, 8, 2*64)
             print('input_tiled shape: %s' % input_tiled.get_shape())
+            print('weights_reshaped shape: %s' % weights_reshaped.get_shape())
             votes = tf.reduce_sum(input_tiled*weights_reshaped, axis=2)
             votes_reshaped = tf.reshape(votes, [-1, in_capsules*in_height*in_width, num_classes, activation_length])  # (b, 32*4*20, 2, 16)
             # votes_reshaped = tf.check_numerics(votes_reshaped, message="nan or inf from: votes_reshaped in class capsules")
@@ -61,4 +63,5 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
             print('class capsule activations shape: %s' % activations.get_shape())
             print('class capsuel coupling_coeffs shape: %s' % coupling_coeffs.get_shape())
 
+    activations = tf.layers.batch_normalization(activations, training=training)
     return activations, coupling_coeffs

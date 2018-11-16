@@ -35,6 +35,8 @@ tf.app.flags.DEFINE_integer('num_classes', 11,
                             """How many classes to classify.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
+tf.app.flags.DEFINE_boolean('restore', False,
+                            """Whether to restore paused session.""")
 
 # cluster params
 tf.app.flags.DEFINE_string('job_name', '', 'One of "ps", "worker"')
@@ -134,11 +136,24 @@ def train(model, cluster, server):
     with tf.device(tf.train.replica_device_setter(
             worker_device="/job:worker/task:%d" % FLAGS.task_index,
             cluster=cluster)):
+        global_step = 0
+        if FLAGS.restore:
+            ckpt = tf.train.get_checkpoint_state(FLAGS.summary_dir)
+            if ckpt and ckpt.model_checkpoint_path:
+                # Assuming model_checkpoint_path looks something like:
+                #   /my-favorite-path/cifar10_train/model.ckpt-0,
+                # extract global_step from it.
+                global_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
+                print('Restoring from step: ' + global_step)
+            else:
+                print('No checkpoint file found')
+                return
+
         # Create a variable to count the number of train() calls. This equals the
         # number of batches processed * FLAGS.num_gpus.
         global_step = tf.get_variable(
             'global_step', [],
-            initializer=tf.constant_initializer(0), trainable=False)
+            initializer=tf.constant_initializer(global_step), trainable=False)
 
         learning_rate = tf.train.exponential_decay(
             learning_rate=hparams.learning_rate,
@@ -235,7 +250,12 @@ def train(model, cluster, server):
         # sess = tf.Session(config=config)
         # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
         # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
-        sess.run(init)
+        if FLAGS.restore:
+            # Restores from checkpoint
+            print('Restoring session from checkpoint file: %s' % ckpt.model_checkpoint_path)
+            saver.restore(sess, ckpt.model_checkpoint_path)
+        else:
+            sess.run(init)
 
         # Start the queue runners.
         tf.train.start_queue_runners(sess=sess)
@@ -259,7 +279,7 @@ def train(model, cluster, server):
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
-            if step % 25 == 0:
+            if step % 10 == 0:
                 num_examples_per_step = FLAGS.batch_size * FLAGS.num_gpus
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = duration / FLAGS.num_gpus
@@ -309,10 +329,11 @@ def main(argv=None):  # pylint: disable=unused-argument
     elif FLAGS.job_name == "worker":
         model = get_model(FLAGS.model)
 
-        if FLAGS.task_index == 0:
-            if tf.gfile.Exists(FLAGS.summary_dir):
-                tf.gfile.DeleteRecursively(FLAGS.summary_dir)
-            tf.gfile.MakeDirs(FLAGS.summary_dir)
+        if not FLAGS.restore:
+            if FLAGS.task_index == 0:
+                if tf.gfile.Exists(FLAGS.summary_dir):
+                    tf.gfile.DeleteRecursively(FLAGS.summary_dir)
+                tf.gfile.MakeDirs(FLAGS.summary_dir)
 
         print("\nworker " + str(FLAGS.task_index) + " start training...\n")
         train(model, cluster, server)

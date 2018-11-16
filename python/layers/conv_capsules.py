@@ -5,7 +5,7 @@ import tensorflow.contrib.slim as slim
 from python.layers.routing import dynamic_routing
 
 
-def conv_capsule1d(inputs, kernel_size, stride, routing_ites, in_capsules, out_capsules, activation_length, name):
+def conv_capsule1d(inputs, kernel_size, stride, routing_ites, in_capsules, out_capsules, activation_length, training, name):
     """This constructs a convolution capsule layer from a primary or convolution capsule layer.
         i: input capsules (32)
         o: output capsules (32)
@@ -65,6 +65,7 @@ def conv_capsule1d(inputs, kernel_size, stride, routing_ites, in_capsules, out_c
             print('activations shape: %s' % activations.get_shape())  # (b, 32, 6, 6, 8)
             print('coupling_coeffs shape: %s' % coupling_coeffs.get_shape())  # (b*6*6, 32*9, 32)
 
+        activations = tf.layers.batch_normalization(activations, training=training)
         return activations, coupling_coeffs
 
 
