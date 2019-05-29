@@ -65,7 +65,7 @@ def conv_capsule1d(inputs, kernel_size, stride, routing_ites, in_capsules, out_c
             print('activations shape: %s' % activations.get_shape())  # (b, 32, 6, 6, 8)
             print('coupling_coeffs shape: %s' % coupling_coeffs.get_shape())  # (b*6*6, 32*9, 32)
 
-        activations = tf.layers.batch_normalization(activations, training=training)
+        # activations = tf.layers.batch_normalization(activations, training=training)
         return activations, coupling_coeffs
 
 

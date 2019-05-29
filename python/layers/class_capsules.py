@@ -63,5 +63,5 @@ def class_caps1d(inputs, num_classes, activation_length, routing_ites, batch_siz
             print('class capsule activations shape: %s' % activations.get_shape())
             print('class capsuel coupling_coeffs shape: %s' % coupling_coeffs.get_shape())
 
-    activations = tf.layers.batch_normalization(activations, training=training)
+    # activations = tf.layers.batch_normalization(activations, training=training)
     return activations, coupling_coeffs
